@@ -60,11 +60,65 @@ export function RelatoriosClient({
     return `${displayYears} ${displayYears === 1 ? 'ano' : 'anos'}${remainingMonths > 0 ? ` e ${remainingMonths}m` : ''}`
   }
 
+  // Controle de Ordenação e Paginação (Espera por Procedimento)
+  const [procedSortBy, setProcedSortBy] = useState<'cod_sigtap' | 'desc_sigtap' | 'total_pacientes' | 'media_espera_anos'>('total_pacientes')
+  const [procedSortOrder, setProcedSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [procedPage, setProcedPage] = useState(1)
+  const [procedLimit, setProcedLimit] = useState(15)
+
+  const handleSort = (column: 'cod_sigtap' | 'desc_sigtap' | 'total_pacientes' | 'media_espera_anos') => {
+    if (procedSortBy === column) {
+      setProcedSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setProcedSortBy(column)
+      setProcedSortOrder('desc')
+    }
+    setProcedPage(1)
+  }
+
   // Filtragem local para os procedimentos
   const filteredProcedimentos = esperaProcedimento.filter(p => 
     p.desc_sigtap.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.cod_sigtap.includes(searchQuery)
   )
+
+  // Ordenação local
+  const sortedProcedimentos = [...filteredProcedimentos].sort((a, b) => {
+    let valA = a[procedSortBy]
+    let valB = b[procedSortBy]
+
+    if (valA === undefined || valA === null) return 1
+    if (valB === undefined || valB === null) return -1
+
+    if (typeof valA === 'string') {
+      return procedSortOrder === 'asc'
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA)
+    } else {
+      return procedSortOrder === 'asc'
+        ? valA - valB
+        : valB - valA
+    }
+  })
+
+  // Paginação local
+  const totalProcedItems = sortedProcedimentos.length
+  const totalProcedPages = Math.ceil(totalProcedItems / procedLimit)
+  const startIndex = (procedPage - 1) * procedLimit
+  const paginatedProcedimentos = sortedProcedimentos.slice(startIndex, startIndex + procedLimit)
+
+  const getPageNumbers = () => {
+    const pages = []
+    const range = 1
+    for (let i = 1; i <= totalProcedPages; i++) {
+      if (i === 1 || i === totalProcedPages || (i >= procedPage - range && i <= procedPage + range)) {
+        pages.push(i)
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...')
+      }
+    }
+    return pages
+  }
 
   const getRiskLabel = (risco: number) => {
     switch (risco) {
@@ -298,13 +352,16 @@ export function RelatoriosClient({
               <div className="p-6 md:p-8 border-b border-border/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Procedimentos com Maior Tempo de Espera</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Ordenado pela fila mais antiga por padrão.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Clique nas colunas para ordenar a tabela.</p>
                 </div>
                 <div className="relative max-w-xs w-full">
                   <input
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setProcedPage(1)
+                    }}
                     className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-4 pr-10 text-xs text-foreground outline-none focus:border-primary transition-all placeholder:text-muted-foreground/50"
                     placeholder="Filtrar por nome ou código..."
                   />
@@ -315,22 +372,54 @@ export function RelatoriosClient({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border/20 bg-muted/20 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                      <th className="py-4 px-6">Código SIGTAP</th>
-                      <th className="py-4 px-6">Procedimento</th>
-                      <th className="py-4 px-6 text-center">Pacientes na Fila</th>
-                      <th className="py-4 px-6 text-right">Espera Média</th>
+                    <tr className="border-b border-border/20 bg-muted/20 text-[10px] font-black uppercase tracking-wider text-muted-foreground select-none">
+                      <th 
+                        className="py-4 px-6 cursor-pointer hover:text-foreground hover:bg-muted/30 transition-colors"
+                        onClick={() => handleSort('cod_sigtap')}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Código SIGTAP</span>
+                          {procedSortBy === 'cod_sigtap' && (procedSortOrder === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th 
+                        className="py-4 px-6 cursor-pointer hover:text-foreground hover:bg-muted/30 transition-colors"
+                        onClick={() => handleSort('desc_sigtap')}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Procedimento</span>
+                          {procedSortBy === 'desc_sigtap' && (procedSortOrder === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th 
+                        className="py-4 px-6 cursor-pointer hover:text-foreground hover:bg-muted/30 transition-colors text-center"
+                        onClick={() => handleSort('total_pacientes')}
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>Pacientes na Fila</span>
+                          {procedSortBy === 'total_pacientes' && (procedSortOrder === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
+                      <th 
+                        className="py-4 px-6 cursor-pointer hover:text-foreground hover:bg-muted/30 transition-colors text-right"
+                        onClick={() => handleSort('media_espera_anos')}
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>Espera Média</span>
+                          {procedSortBy === 'media_espera_anos' && (procedSortOrder === 'asc' ? '▲' : '▼')}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/10 text-xs font-semibold">
-                    {filteredProcedimentos.length === 0 ? (
+                    {paginatedProcedimentos.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="py-12 text-center text-muted-foreground font-bold">
                           Nenhum procedimento encontrado.
                         </td>
                       </tr>
                     ) : (
-                      filteredProcedimentos.map((p) => (
+                      paginatedProcedimentos.map((p) => (
                         <tr key={p.cod_sigtap} className="hover:bg-muted/10 transition-colors">
                           <td className="py-4 px-6 font-mono text-muted-foreground">{p.cod_sigtap}</td>
                           <td className="py-4 px-6 text-foreground uppercase">{p.desc_sigtap}</td>
@@ -346,6 +435,55 @@ export function RelatoriosClient({
                   </tbody>
                 </table>
               </div>
+
+              {/* Controles de Paginação */}
+              {totalProcedPages > 1 && (
+                <div className="p-6 md:p-8 border-t border-border/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Exibindo {startIndex + 1} - {Math.min(startIndex + procedLimit, totalProcedItems)} de {totalProcedItems} procedimentos
+                  </span>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={procedPage === 1}
+                      onClick={() => setProcedPage(prev => Math.max(prev - 1, 1))}
+                      className="px-4 py-2 border border-border/40 text-foreground hover:bg-muted/50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      Anterior
+                    </button>
+                    
+                    {getPageNumbers().map((pageNum, idx) => {
+                      if (pageNum === '...') {
+                        return <span key={`dots-${idx}`} className="px-1 text-muted-foreground">...</span>
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setProcedPage(pageNum as number)}
+                          className={`w-9 h-9 flex items-center justify-center rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                            procedPage === pageNum 
+                              ? 'bg-primary text-primary-foreground shadow-md shadow-primary/15' 
+                              : 'border border-border/40 hover:bg-muted/50 text-foreground'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+
+                    <button
+                      type="button"
+                      disabled={procedPage === totalProcedPages}
+                      onClick={() => setProcedPage(prev => Math.min(prev + 1, totalProcedPages))}
+                      className="px-4 py-2 border border-border/40 text-foreground hover:bg-muted/50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      Próximo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
