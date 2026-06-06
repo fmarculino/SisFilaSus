@@ -3,10 +3,10 @@
 import React, { useState } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { 
-  Plus, Edit2, Trash2, X, User, Check, Key, UserCheck, UserX,
+  Plus, Edit2, X, User, Check, Key, UserCheck, UserX,
   ShieldCheck, ShieldAlert, UserCog
 } from 'lucide-react'
-import { createUserAction, updateUserAction, deleteUserAction } from './actions'
+import { createUserAction, updateUserAction } from './actions'
 
 interface UserProfile {
   id: string
@@ -155,23 +155,37 @@ export function UsuariosClient({
     }
   }
 
-  const handleDelete = async (id: string, name: string, emailStr: string) => {
-    if (emailStr.toLowerCase() === userEmail.toLowerCase()) {
-      alert('Você não pode excluir sua própria conta atualmente logada!')
+  const handleToggleActive = async (u: UserProfile) => {
+    if (u.email.toLowerCase() === userEmail.toLowerCase()) {
+      alert('Você não pode suspender ou alterar o status de sua própria conta atualmente logada!')
       return
     }
 
-    if (!confirm(`Tem certeza de que deseja REMOVER permanentemente a conta de "${name}" (${emailStr})? Esta ação excluirá suas credenciais de acesso.`)) {
+    const newActiveState = !u.active
+    const actionText = newActiveState ? 'ativar' : 'inativar'
+    if (!confirm(`Tem certeza de que deseja ${actionText} o usuário "${u.nome}" (${u.email})?`)) {
       return
     }
 
     try {
-      const res = await deleteUserAction(id)
+      const res = await updateUserAction(u.id, {
+        nome: u.nome,
+        email: u.email,
+        role: u.role,
+        cnes_vinculo: u.cnes_vinculo,
+        active: newActiveState
+      })
       if (!res.success) throw new Error(res.error)
-      setUsers(prev => prev.filter(u => u.id !== id))
-      alert('Usuário excluído com sucesso!')
+      
+      setUsers(prev => prev.map(item => {
+        if (item.id === u.id) {
+          return { ...item, active: newActiveState }
+        }
+        return item
+      }))
+      alert(`Usuário ${newActiveState ? 'ativado' : 'inativado'} com sucesso!`)
     } catch (err: any) {
-      alert(err.message || 'Erro ao excluir usuário.')
+      alert(err.message || 'Erro ao alterar status do usuário.')
     }
   }
 
@@ -322,12 +336,20 @@ export function UsuariosClient({
                               <Edit2 className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(u.id, u.nome, u.email)}
+                              onClick={() => handleToggleActive(u)}
                               disabled={u.email.toLowerCase() === userEmail.toLowerCase()}
-                              className="p-2 rounded-xl hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
-                              title="Excluir Usuário"
+                              className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                                u.active 
+                                  ? 'hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500' 
+                                  : 'hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500'
+                              } disabled:opacity-30 disabled:hover:bg-transparent`}
+                              title={u.active ? "Inativar Usuário" : "Ativar Usuário"}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {u.active ? (
+                                <UserX className="h-4 w-4" />
+                              ) : (
+                                <UserCheck className="h-4 w-4" />
+                              )}
                             </button>
                           </div>
                         </td>

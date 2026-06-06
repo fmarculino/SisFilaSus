@@ -117,22 +117,4 @@ export async function updateUserAction(
   return { success: true }
 }
 
-export async function deleteUserAction(userId: string) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não está configurado.')
-    return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
-  }
 
-  const supabase = createAdminClient()
-
-  // Deletando do Auth (irá disparar cascade delete na tabela public.users devido à Foreign Key com ON DELETE CASCADE)
-  const { error } = await supabase.auth.admin.deleteUser(userId)
-
-  if (error) {
-    console.error('Erro ao excluir usuário no Auth:', error.message)
-    return { success: false, error: error.message }
-  }
-
-  revalidatePath('/dashboard/usuarios')
-  return { success: true }
-}

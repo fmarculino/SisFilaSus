@@ -4,7 +4,14 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.0-beta] — 2026-06-05 (Atual)
+## [0.6.1-beta] — 2026-06-06 (Atual)
+### Alterado
+* **Gerenciamento de Usuários (`/dashboard/usuarios`)**: Removida a opção de exclusão definitiva de contas. Substituída por botões de ação rápida de ativação e inativação (suspensão) de usuários diretamente na tabela.
+* **Backend de Usuários**: Removida a action `deleteUserAction` para impedir exclusão de credenciais a nível de API.
+
+---
+
+## [0.6.0-beta] — 2026-06-05
 ### Adicionado
 * **Painel Modelador de Mensagens (`/dashboard/mensagem`)**: CRUD de templates de mensagens de WhatsApp com seletor de tags e variáveis dinâmicas de clique único.
 * **Preview Interativo e Editável de WhatsApp**: Caixa de texto com preview em tempo real com substituição de tags antes do envio direto do WhatsApp.
