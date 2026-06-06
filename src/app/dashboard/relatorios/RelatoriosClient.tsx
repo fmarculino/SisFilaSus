@@ -503,9 +503,9 @@ export function RelatoriosClient({
                         <span className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg border ${riskCfg.color}`}>
                           {riskCfg.label}
                         </span>
-                        <div className="h-10 w-10 rounded-xl bg-muted/40 flex items-center justify-center text-foreground font-bold">
-                          {r.classificacao_risco}
-                        </div>
+                        <span className="text-[10px] font-black text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/10">
+                          Código: {r.classificacao_risco}
+                        </span>
                       </div>
                       
                       <div className="space-y-2">
