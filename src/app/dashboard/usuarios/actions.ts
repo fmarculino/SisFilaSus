@@ -11,6 +11,11 @@ export async function createUserAction(formData: {
   active: boolean
   password: string
 }) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não está configurado.')
+    return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
+  }
+
   const supabase = createAdminClient()
 
   // 1. Criar a conta de autenticação no Supabase Auth
@@ -65,6 +70,11 @@ export async function updateUserAction(
     password?: string
   }
 ) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não está configurado.')
+    return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
+  }
+
   const supabase = createAdminClient()
 
   // 1. Atualizar na tabela pública
@@ -108,6 +118,11 @@ export async function updateUserAction(
 }
 
 export async function deleteUserAction(userId: string) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não está configurado.')
+    return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
+  }
+
   const supabase = createAdminClient()
 
   // Deletando do Auth (irá disparar cascade delete na tabela public.users devido à Foreign Key com ON DELETE CASCADE)
