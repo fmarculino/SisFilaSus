@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
 import { 
   Search, Filter, Eye, Phone, MessageSquare, Plus, X, 
-  Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle
+  Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
+  ArrowUpDown
 } from 'lucide-react'
 import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus } from './actions'
 
@@ -73,6 +74,32 @@ export function FilaClient({
   const [antigas, setAntigas] = useState(appliedFilters.antigas || 'false')
   const [omitirForaSisreg, setOmitirForaSisreg] = useState(appliedFilters.omitirForaSisreg || 'true')
 
+  // Estados para busca incremental de procedimentos no filtro
+  const [procedDropdownOpen, setProcedDropdownOpen] = useState(false)
+  const [procedSearchQuery, setProcedSearchQuery] = useState('')
+  const procedContainerRef = useRef<HTMLDivElement>(null)
+
+  // Sincronizar o termo de busca com o procedimento selecionado
+  useEffect(() => {
+    const selected = procedimentos.find(p => p.cod_sigtap === proced)
+    setProcedSearchQuery(selected ? selected.desc_sigtap.trim() : '')
+  }, [proced, procedimentos])
+
+  // Fechar o menu de procedimentos ao clicar fora do componente
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (procedContainerRef.current && !procedContainerRef.current.contains(event.target as Node)) {
+        setProcedDropdownOpen(false)
+        const selected = procedimentos.find(p => p.cod_sigtap === proced)
+        setProcedSearchQuery(selected ? selected.desc_sigtap.trim() : '')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [proced, procedimentos])
+
   // Drawer (Detalhamento)
   const [selectedSol, setSelectedSol] = useState<any | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -121,7 +148,41 @@ export function FilaClient({
     if (antigas === 'true') params.set('antigas', 'true')
     if (omitirForaSisreg === 'false') params.set('omitirForaSisreg', 'false')
     
+    const sortVal = searchParams.get('sort')
+    const orderVal = searchParams.get('order')
+    if (sortVal) params.set('sort', sortVal)
+    if (orderVal) params.set('order', orderVal)
+    
     params.set('page', '1') // reseta para primeira página
+    params.set('limit', itemsPerPage.toString())
+
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // Ordenação de colunas da tabela
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams()
+    
+    if (search) params.set('search', search)
+    if (proced) params.set('proced', proced)
+    if (municipio) params.set('municipio', municipio)
+    if (risco) params.set('risco', risco)
+    if (status) params.set('status', status)
+    if (tipo) params.set('tipo', tipo)
+    if (antigas === 'true') params.set('antigas', 'true')
+    if (omitirForaSisreg === 'false') params.set('omitirForaSisreg', 'false')
+
+    const currentSort = searchParams.get('sort')
+    const currentOrder = searchParams.get('order')
+
+    let nextOrder = 'asc'
+    if (currentSort === field) {
+      nextOrder = currentOrder === 'asc' ? 'desc' : 'asc'
+    }
+
+    params.set('sort', field)
+    params.set('order', nextOrder)
+    params.set('page', '1') // reset page
     params.set('limit', itemsPerPage.toString())
 
     router.push(`${pathname}?${params.toString()}`)
@@ -368,18 +429,91 @@ export function FilaClient({
               </div>
 
               {/* Procedimento */}
-              <div className="group">
+              <div className="group relative" ref={procedContainerRef}>
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Procedimento</label>
-                <select
-                  value={proced}
-                  onChange={(e) => setProced(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
-                >
-                  <option value="">Todos os Procedimentos</option>
-                  {procedimentos.map(p => (
-                    <option key={p.cod_sigtap} value={p.cod_sigtap}>{p.desc_sigtap.trim()}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={procedSearchQuery}
+                    onChange={(e) => {
+                      setProcedSearchQuery(e.target.value)
+                      setProcedDropdownOpen(true)
+                    }}
+                    onFocus={() => setProcedDropdownOpen(true)}
+                    placeholder="Todos os Procedimentos"
+                    className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 pl-4 pr-10 text-xs text-foreground outline-none focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                  />
+                  {proced ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProced('')
+                        setProcedSearchQuery('')
+                        setProcedDropdownOpen(false)
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors p-1"
+                      title="Limpar procedimento"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
+                      <Search className="h-4.5 w-4.5" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Dropdown de Sugestões com Busca Incremental */}
+                {procedDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-2 rounded-2xl border border-border/50 bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                    <ul className="py-2 text-xs divide-y divide-border/5">
+                      <li
+                        onClick={() => {
+                          setProced('')
+                          setProcedSearchQuery('')
+                          setProcedDropdownOpen(false)
+                        }}
+                        className={`px-4 py-3 cursor-pointer transition-colors font-bold uppercase tracking-wider text-[10px] text-muted-foreground hover:bg-muted/50 ${
+                          !proced ? 'bg-primary/10 text-primary' : ''
+                        }`}
+                      >
+                        Todos os Procedimentos
+                      </li>
+                      {procedimentos
+                        .filter(p => {
+                          const query = procedSearchQuery.toLowerCase().trim()
+                          if (!query) return true
+                          return (
+                            p.cod_sigtap.includes(query) ||
+                            p.desc_sigtap.toLowerCase().includes(query)
+                          )
+                        })
+                        .slice(0, 50)
+                        .map(p => {
+                          const isSelected = p.cod_sigtap === proced
+                          return (
+                            <li
+                              key={p.cod_sigtap}
+                              onClick={() => {
+                                setProced(p.cod_sigtap)
+                                setProcedDropdownOpen(false)
+                              }}
+                              className={`px-4 py-2.5 cursor-pointer hover:bg-primary/5 transition-colors flex flex-col gap-0.5 ${
+                                isSelected ? 'bg-primary/10 border-l-2 border-primary' : ''
+                              }`}
+                            >
+                              <span className="font-bold text-foreground line-clamp-2">
+                                {p.desc_sigtap.trim()}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/60 font-mono font-bold">
+                                Código: {p.cod_sigtap}
+                              </span>
+                            </li>
+                          )
+                        })}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Município de Origem */}
@@ -516,6 +650,19 @@ export function FilaClient({
                   <th className="py-5 px-6">Município</th>
                   <th className="py-5 px-6">Risco</th>
                   <th className="py-5 px-6">Posição</th>
+                  <th 
+                    className="py-5 px-6 cursor-pointer select-none hover:text-foreground transition-colors"
+                    onClick={() => handleSort('data_solicitacao')}
+                  >
+                    <div className="flex items-center gap-1 group/sort">
+                      <span>Data Sol.</span>
+                      <ArrowUpDown className={`h-3 w-3 transition-colors ${
+                        searchParams.get('sort') === 'data_solicitacao'
+                          ? 'text-primary'
+                          : 'text-muted-foreground/30 group-hover/sort:text-muted-foreground/60'
+                      }`} />
+                    </div>
+                  </th>
                   <th className="py-5 px-6">Status</th>
                   <th className="py-5 px-6 text-right">Ação</th>
                 </tr>
@@ -523,7 +670,7 @@ export function FilaClient({
               <tbody className="divide-y divide-border/10 text-xs font-semibold">
                 {solicitacoes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-muted-foreground font-bold">
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground font-bold">
                       Nenhuma solicitação encontrada com os filtros aplicados.
                     </td>
                   </tr>
@@ -558,6 +705,9 @@ export function FilaClient({
                         ) : (
                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">Agendado (AR)</span>
                         )}
+                      </td>
+                      <td className="py-4 px-6 text-muted-foreground whitespace-nowrap">
+                        {sol.data_solicitacao ? new Date(sol.data_solicitacao).toLocaleDateString('pt-BR') : 'N/I'}
                       </td>
                       <td className="py-4 px-6">{getStatusBadge(sol.status_interno)}</td>
                       <td className="py-4 px-6 text-right">

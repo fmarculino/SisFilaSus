@@ -16,6 +16,8 @@ export default async function FilaPage({
     tipo?: string
     antigas?: string
     omitirForaSisreg?: string
+    sort?: string
+    order?: string
   }>
 }) {
   const supabase = await createClient()
@@ -38,6 +40,8 @@ export default async function FilaPage({
   const page = parseInt(resolvedParams.page || '1', 10)
   const limit = parseInt(resolvedParams.limit || '20', 10)
   const offset = (page - 1) * limit
+  const sort = resolvedParams.sort || 'posicao_fila'
+  const order = resolvedParams.order || 'asc'
 
   // Construir query da fila com pacientes!inner para permitir filtros
   let query = supabase
@@ -118,11 +122,18 @@ export default async function FilaPage({
     query = query.eq('cnes_solicitante', profile.cnes_vinculo)
   }
 
-  // Ordenação: posição na fila crescente (nulos no fim) e data de solicitação mais antiga primeiro
-  query = query
-    .order('posicao_fila', { ascending: true, nullsFirst: false })
-    .order('data_solicitacao', { ascending: true })
-    .range(offset, offset + limit - 1)
+  // Ordenação dinâmica
+  if (sort === 'data_solicitacao') {
+    query = query
+      .order('data_solicitacao', { ascending: order === 'asc' })
+      .order('posicao_fila', { ascending: true, nullsFirst: false })
+  } else {
+    query = query
+      .order('posicao_fila', { ascending: true, nullsFirst: false })
+      .order('data_solicitacao', { ascending: true })
+  }
+
+  query = query.range(offset, offset + limit - 1)
 
   const { data: solicitacoes, count } = await query
 

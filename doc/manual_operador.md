@@ -15,13 +15,13 @@ A tela **Fila de Espera** (`/dashboard/fila`) é a central de consultas de todas
 ### 💡 Principais Ações nesta Tela:
 * **Busca de Paciente**: Pesquise na barra superior informando o **Nome Completo**, o número do **CNS** (Cartão SUS, 15 dígitos) ou o **Código de Solicitação** do SISREG.
 * **Filtros Avançados**:
-  * **Procedimento**: Filtre a fila para um procedimento médico específico.
+  * **Procedimento (Busca Incremental)**: Filtre a fila por um procedimento específico. Em vez de uma caixa de seleção comum, este é um **seletor inteligente (Combobox)**. Você pode digitar para pesquisar tanto pelo **nome do procedimento** quanto pelo seu **código SIGTAP** de forma incremental. A lista de sugestões exibe a descrição e o código de cada item, limitados a 50 resultados para máxima performance. Há um botão de limpar (X) integrado ao campo para redefinir rapidamente o filtro.
   * **Município de Origem**: Visualize apenas as solicitações de determinado município da regulação.
   * **Risco**: Filtre por prioridade clínica (*Emergência*, *Urgência*, *Prioridade*, *Eletivo*, *Especial*).
   * **Status Interno**: Busque pacientes por estágio operacional (ex: `SEM_CONTATO` para retentar ligações).
   * **Eixo (Tipo)**: Divida a visualização entre *Ambulatorial (Consultas/Exames)* e *Internação (Cirurgias Eletivas)*.
 * **Filtros Operacionais**:
-  * **Solicitações Antigas (> 5 anos)**: Checkbox para identificar cadastros muito antigos para inativação.
+  * **Solicitações Antigas (> 5 anos)**: Checkbox de limpeza operacional. Quando ativado, filtra a tabela para exibir **apenas** solicitações cujo cadastro foi realizado há mais de 5 anos da data atual. Esse recurso permite à equipe de regulação isolar solicitações obsoletas e realizar uma busca ativa direcionada para auditar se os pacientes já realizaram os procedimentos ou desistiram, permitindo a inativação ou limpeza segura da fila.
   * **Omitir Fora do SISREG**: Filtro ativo por padrão que oculta registros que não constam mais nos relatórios de exportação do SISREG (normalmente concluídos ou cancelados). Desmarque para visualizá-los.
 
 ---
