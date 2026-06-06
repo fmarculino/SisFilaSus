@@ -350,14 +350,6 @@ export function PacientesClient({
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(p.id, p.nome_usuario)}
-                            disabled={role !== 'SMS_ADMIN'}
-                            className="p-2 rounded-xl hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
-                            title="Excluir Registro"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
                         </div>
                       </td>
                     </tr>
