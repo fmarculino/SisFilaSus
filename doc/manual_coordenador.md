@@ -73,3 +73,12 @@ A tela **Auditoria** (`/dashboard/auditoria`) (restrita a administradores e coor
 * O sistema grava registros imutáveis de cada inserção, deleção ou edição (`INSERT`, `UPDATE`, `DELETE`) de Pacientes, Solicitações, Contatos e Usuários.
 * Você pode filtrar por período, por tabela, por operador ou buscar um código de solicitação específico.
 * Clique em "Visualizar Diff" para comparar lado a lado o estado antigo dos dados em vermelho e as novas alterações em verde.
+
+---
+
+## 🌐 8. Portal do Cidadão (Página Pública)
+O SisFilaSus disponibiliza um portal público e de livre acesso para que os cidadãos possam acompanhar a sua própria posição na fila de espera sem precisar ligar ou comparecer à Secretaria de Saúde.
+
+* **Rota do Portal**: `/portal-cidadao`
+* **Endereço Padrão**: `https://[seu-dominio-de-producao]/portal-cidadao`
+* **Segurança e LGPD**: A consulta exige apenas o CPF ou o CNS. O sistema mascara de forma irreversível os dados pessoais na tela (exibindo apenas as iniciais do nome) e omite quaisquer diagnósticos, CIDs ou informações sensíveis de saúde, garantindo total conformidade legal.

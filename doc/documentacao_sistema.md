@@ -59,8 +59,13 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
 * Tela de visualização com comparador de Diffs que destaca chaves alteradas.
 
 ### 🌐 Portal do Cidadão (Público)
-* Página pública (/portal-cidadao) com consulta de posição de fila por CPF ou CNS.
-* Mascaramento de dados e ocultação de CIDs/mães em estrito cumprimento da LGPD.
+O portal público permite que o paciente consulte sua posição na fila de espera de forma transparente e segura, sem necessidade de login administrativo.
+
+* **Endereços de Acesso**:
+  * **Ambiente de Desenvolvimento (Local)**: [http://localhost:3000/portal-cidadao](http://localhost:3000/portal-cidadao)
+  * **Ambiente de Produção (Online)**: `https://[seu-dominio-de-producao]/portal-cidadao`
+* **Como Funciona**: O cidadão acessa a rota pública `/portal-cidadao`, insere o seu **CPF** ou **CNS** (Cartão Nacional de Saúde) e clica em pesquisar. O sistema busca os registros ativos vinculados ao documento informado e lista os procedimentos solicitados, a unidade de saúde responsável e a posição do paciente.
+* **Segurança e LGPD**: Todos os dados em tela são mascarados de forma reativa (exibindo apenas as iniciais do nome do paciente e partes ocultas do CPF/CNS). Informações clínicas sensíveis como CIDs, diagnósticos e nomes de mães são totalmente omitidas do portal público para preservar o sigilo das informações de saúde em conformidade com a Lei Geral de Proteção de Dados (LGPD).
 
 ---
 

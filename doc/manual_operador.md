@@ -73,3 +73,16 @@ A tela **Lista de Convocação** (`/dashboard/convocacao`) é a sua fila de trab
   * O painel de convocação e registro rápido abrirá à direita.
   * Escolha o modelo, edite o preview, chame no WhatsApp e salve o desfecho.
   * Assim que você registrar um desfecho final (Confirmou ou Recusou), o paciente **some da lista diária**, permitindo que você limpe a sua fila de trabalho.
+
+---
+
+## 🌐 7. Portal do Cidadão (Orientação ao Paciente)
+Sempre que um paciente solicitar a confirmação de sua posição na fila ou quiser acompanhar o andamento de forma independente, você pode orientá-lo a acessar o **Portal do Cidadão**.
+
+* **Endereço para os Pacientes**:
+  * **Ambiente de Produção (Online)**: `https://[seu-dominio-de-producao]/portal-cidadao`
+  * **Ambiente de Desenvolvimento (Local)**: [http://localhost:3000/portal-cidadao](http://localhost:3000/portal-cidadao)
+* **Como Instruir o Paciente**:
+  1. Informe ao paciente que ele deve acessar o link do portal.
+  2. Ele **não precisa de senha ou login**, bastando apenas digitar o seu **CPF** ou o número do seu **CNS** (Cartão SUS) e clicar em "Pesquisar".
+  3. Explique que, por questões de segurança (LGPD), o nome dele aparecerá apenas com as iniciais e os números do documento estarão parcialmente ocultos, mas ele conseguirá ver a posição exata e o procedimento cadastrado.
