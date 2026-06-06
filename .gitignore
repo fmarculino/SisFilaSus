@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# patient data and spreadsheets
+*.csv
+*.xlsx
+scratch/*.txt
+

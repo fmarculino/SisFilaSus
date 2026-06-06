@@ -1,26 +1,240 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core Palette - Healthcare Queue Management Refined (OKLCH) */
+  --background: oklch(0.99 0.01 220);
+  --foreground: oklch(0.15 0.05 220);
+  
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.05 220);
+  
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.05 220);
+  
+  /* Primary: Professional Healing Teal */
+  --primary: oklch(0.42 0.11 200);
+  --primary-foreground: oklch(0.99 0 0);
+  
+  /* Secondary: Soft Mint Green */
+  --secondary: oklch(0.96 0.03 160);
+  --secondary-foreground: oklch(0.32 0.08 160);
+  
+  --muted: oklch(0.96 0.01 220);
+  --muted-foreground: oklch(0.45 0.05 220);
+  
+  /* Accent: Clean Sky Blue */
+  --accent: oklch(0.93 0.05 210);
+  --accent-foreground: oklch(0.32 0.09 210);
+  
+  /* Destructive: Medical Alert Red */
+  --destructive: oklch(0.58 0.16 28);
+  --destructive-foreground: oklch(0.98 0 0);
+  
+  --border: oklch(0.92 0.02 220);
+  --input: oklch(0.92 0.02 220);
+  --ring: oklch(0.42 0.11 200 / 0.2);
+  
+  /* Design Tokens */
+  --radius: 1rem;
 }
 
-@theme inline {
+.dark {
+  --background: oklch(0.12 0.03 220);
+  --foreground: oklch(0.98 0.01 220);
+  
+  --card: oklch(0.15 0.03 220);
+  --card-foreground: oklch(0.98 0.01 220);
+  
+  --popover: oklch(0.14 0.03 220);
+  --popover-foreground: oklch(0.98 0.01 220);
+  
+  --primary: oklch(0.68 0.11 190);
+  --primary-foreground: oklch(0.1 0.03 220);
+  
+  --secondary: oklch(0.2 0.04 220);
+  --secondary-foreground: oklch(0.85 0.05 220);
+  
+  --muted: oklch(0.18 0.04 220);
+  --muted-foreground: oklch(0.65 0.05 220);
+  
+  --accent: oklch(0.24 0.05 220);
+  --accent-foreground: oklch(0.9 0.05 220);
+  
+  --border: oklch(0.24 0.05 220);
+  --input: oklch(0.24 0.05 220);
+}
+
+@theme {
+  --font-heading: var(--font-outfit), sans-serif;
+  --font-body: var(--font-plus-jakarta), sans-serif;
+  
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  --shadow-bento: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 10px -1px rgba(0, 0, 0, 0.03);
+  --shadow-bento-hover: 0 10px 30px -4px rgba(0, 0, 0, 0.08), 0 4px 15px -2px rgba(0, 0, 0, 0.04);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-plus-jakarta), sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted/50 rounded-full hover:bg-muted transition-colors;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-outfit), sans-serif;
+    letter-spacing: -0.04em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.bento-card {
+  @apply bg-card/40 backdrop-blur-xl border border-border/40 rounded-[2.5rem] shadow-xl transition-all duration-500;
+}
+
+.bento-card:hover {
+  @apply shadow-2xl shadow-primary/5 -translate-y-1 border-primary/20 bg-card/60;
+}
+
+.animate-in {
+  animation: entrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes entrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.zoom-in-95 {
+  animation: zoom-in-95 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoom-in-95 {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.glass {
+  @apply bg-background/40 backdrop-blur-2xl border border-border/20 shadow-lg;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media print {
+  .no-print, 
+  nav, 
+  header, 
+  button, 
+  form,
+  .sidebar-container {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dashboard-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+    font-size: 10pt !important;
+    color: black !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  .bg-card, .bg-muted, .bg-primary {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .text-primary, .text-muted-foreground, .text-foreground {
+    color: black !important;
+  }
 }
