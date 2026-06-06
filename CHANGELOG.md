@@ -4,7 +4,7 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.0] — 2026-06-05 (Atual)
+## [0.6.0-beta] — 2026-06-05 (Atual)
 ### Adicionado
 * **Painel Modelador de Mensagens (`/dashboard/mensagem`)**: CRUD de templates de mensagens de WhatsApp com seletor de tags e variáveis dinâmicas de clique único.
 * **Preview Interativo e Editável de WhatsApp**: Caixa de texto com preview em tempo real com substituição de tags antes do envio direto do WhatsApp.
