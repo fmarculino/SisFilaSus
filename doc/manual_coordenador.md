@@ -61,10 +61,16 @@ Em **Prestadores** (`/dashboard/prestadores`), você gerencia a rede municipal c
 ---
 
 ## 📊 6. Relatórios Gerenciais Avançados
-Acesse `/dashboard/relatorios` para ter uma visão analítica completa:
-* **Espera por Procedimento**: Ranking dos procedimentos com maior tempo médio de espera e tamanho da fila.
-* **Análise de Risco**: Descubra a média de tempo que um paciente de risco *Urgente* ou *Eletivo* espera na regulação.
-* **Produtividade da Equipe**: Taxa de sucesso (quantos contatos confirmaram) e volume de buscas ativas realizadas por cada operador.
+Acesse `/dashboard/relatorios` para obter relatórios analíticos em tempo real da regulação:
+
+* **Resumo Geral**: Apresenta os KPIs municipais de forma consolidada e gráficos rápidos das filas.
+* **Espera por Procedimento**: Exibe a lista detalhada de procedimentos.
+  * **Interatividade**: É possível clicar no cabeçalho de qualquer coluna (Código, Procedimento, Pacientes na Fila, Espera Média) para ordenar a listagem de forma crescente ou decrescente.
+  * **Paginação e Busca**: Use a barra de pesquisa superior para filtrar e a paginação na barra inferior para navegar rapidamente pelos resultados.
+* **Espera por Risco**: Exibe cartões estatísticos agrupados de acordo com a prioridade clínica cadastrada no SISREG.
+  * **Códigos dos Cards (SISREG)**: O identificador numérico no canto superior direito representa o código do SISREG (`Código: 0` = Emergência, `Código: 1` = Urgência, `Código: 2` = Prioridade, `Código: 3` = Eletivo, `Código: 4` = Especial).
+  * **Média de Espera do Risco**: Representa o tempo médio de espera (diferença entre data de solicitação e a data atual) de todos os pacientes ativos daquela categoria na fila.
+* **Produtividade da Equipe**: Acompanhe o volume de convocações de busca ativa feitas e a taxa de confirmação obtida individualmente por cada operador regulador.
 
 ---
 

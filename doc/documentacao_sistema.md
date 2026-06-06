@@ -46,10 +46,18 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
 * CRUD de hospitais com CNES, nome e multiseleção de especialidades médicas atendidas, persistido em array nativo do Postgres.
 
 ### 📊 Relatórios Gerenciais Avançados
-* Painel Bento Grid com estatísticas agrupadas de:
-  * Tempo médio de espera por classificação de risco (calculado via DB em anos, meses e dias).
-  * Ranking de procedimentos com maior fila acumulada.
-  * Produtividade e taxa de sucesso de buscas ativas de cada operador.
+Painel analítico completo para suporte à decisão da gestão municipal, estruturado em abas dinâmicas:
+* **Resumo Geral**: Visão consolidada dos principais KPIs municipais (total de regulados, espera média ponderada geral, contatos efetuados e taxa de sucesso).
+* **Espera por Procedimento**: Listagem detalhada de todos os procedimentos da fila ativa. Possui busca textual, paginação rápida e ordenação de colunas reativa (crescente e decrescente, incluindo a ordenação por volume de pacientes na fila).
+* **Espera por Risco**: Métricas agrupadas de acordo com a prioridade clínica dos pacientes na fila de regulação:
+  * **Código do Risco (Padrão SISREG)**: Exibido no canto superior direito dos cards, correspondendo à numeração oficial do SUS:
+    * `Código: 0` = Emergência
+    * `Código: 1` = Urgência
+    * `Código: 2` = Prioridade
+    * `Código: 3` = Eletivo
+    * `Código: 4` = Especial
+  * **Média de Espera do Risco**: Representa o tempo médio geral que todos os pacientes ativos daquela classificação específica estão aguardando na fila. O cálculo é realizado em tempo real a partir da diferença em dias entre a data de solicitação e a data atual.
+* **Produtividade da Equipe**: Acompanhamento individual do desempenho de cada operador regulador, detalhando volume total de convocações, taxas de confirmação, recusas e insucesso de contato.
 
 ### 👥 Cadastro de Usuários (Gerenciamento de Contas)
 * Painel exclusivo para coordenadores criarem e configurarem contas de operadores, com vínculo obrigatório de CNES para o perfil de Unidade.
