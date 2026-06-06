@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
@@ -51,6 +51,14 @@ export function PacientesClient({
   const [search, setSearch] = useState(searchParam)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    setPacientes(initialPacientes)
+  }, [initialPacientes])
+
+  useEffect(() => {
+    setSearch(searchParam)
+  }, [searchParam])
 
   // Campos do Formulário
   const [nome, setNome] = useState('')
