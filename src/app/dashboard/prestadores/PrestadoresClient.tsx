@@ -3,10 +3,10 @@
 import React, { useState } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { 
-  Plus, Edit2, Trash2, X, Building2, Check, 
+  Plus, Edit2, X, Building2, Check, 
   AlertCircle, ShieldCheck, ShieldAlert
 } from 'lucide-react'
-import { savePrestador, deletePrestador } from './actions'
+import { savePrestador } from './actions'
 
 interface PrestadoresClientProps {
   role: string
@@ -104,19 +104,6 @@ export function PrestadoresClient({ role, email, prestadores: initialPrestadores
     }
   }
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Tem certeza de que deseja remover o prestador "${name}"? Esta ação removerá o vínculo das solicitações.`)) {
-      return
-    }
-
-    try {
-      await deletePrestador(id)
-      setPrestadores(prev => prev.filter(p => p.id !== id))
-      alert('Prestador removido com sucesso!')
-    } catch (err: any) {
-      alert(err.message || 'Erro ao remover prestador.')
-    }
-  }
 
   return (
     <DashboardShell role={role} email={email}>
@@ -194,13 +181,7 @@ export function PrestadoresClient({ role, email, prestadores: initialPrestadores
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(p.id, p.nome)}
-                            className="p-2 rounded-xl hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer"
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
                         </div>
                       </td>
                     </tr>

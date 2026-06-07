@@ -57,34 +57,3 @@ export async function savePrestador(
   revalidatePath('/dashboard/prestadores')
   revalidatePath('/dashboard')
 }
-
-export async function deletePrestador(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Não autenticado')
-  }
-
-  // Verificar perfil
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || (profile.role !== 'SMS_ADMIN' && profile.role !== 'COORDENADOR')) {
-    throw new Error('Acesso negado')
-  }
-
-  const { error } = await supabase
-    .from('hospitais_prestadores')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    throw new Error(`Erro ao deletar prestador: ${error.message}`)
-  }
-
-  revalidatePath('/dashboard/prestadores')
-}

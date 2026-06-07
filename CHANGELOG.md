@@ -13,6 +13,9 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
   * Possibilidade de atualizar um paciente de `ENCAMINHADO` para `INTERNADO` preenchendo a data de internação no drawer.
 * **Badge e Seletores na UI**: Adicionado badge de cor ciano/sky para `ENCAMINHADO`, adicionado o status no seletor manual, nos filtros de pesquisa de status da Fila de Espera, no Portal do Cidadão e nos Relatórios Gerenciais.
 
+### Alterado
+* **Rede de Prestadores (Segurança de Dados)**: Removida a opção de exclusão física de prestadores (hospitais/clínicas) do painel e da API backend para garantir a integridade de dados e os históricos de encaminhamento. Os prestadores agora devem ser inativados caso não estejam mais disponíveis para receber pacientes.
+
 ### Documentado
 * **Fluxo de Encerramento (Baixas)**: Detalhamento no manual do operador e na arquitetura sobre como dar alta cirúrgica (`ALTA`), procedimento concluído (`PROCEDIMENTO_REALIZADO`), ou registrar óbito (`OBITO`) e desistência (`DESISTENCIA`) pelo fluxo de aprovação.
 
