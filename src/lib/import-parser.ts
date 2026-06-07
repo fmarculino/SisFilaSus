@@ -400,12 +400,13 @@ export async function parseAndImportCSV(
   let ausentes = 0
 
   if (codProcedimentosImportados.length > 0) {
-    // Buscar quantidade de solicitações ativas do mesmo tipo que não constam neste lote
+    // Buscar quantidade de solicitações ativas do mesmo tipo que não constam neste lote (apenas nos status de fila e contato iniciais)
     const { count, error: countError } = await supabase
       .from('fila_solicitacoes')
       .select('*', { count: 'exact', head: true })
       .eq('active', true)
       .in('cod_sigtap', codProcedimentosImportados)
+      .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
       .or(`ultima_importacao_id.neq.${importLote.id},ultima_importacao_id.is.null`)
 
     if (countError) console.error('Erro ao contar ausentes:', countError)
@@ -413,11 +414,13 @@ export async function parseAndImportCSV(
 
     if (ausentes > 0) {
       // Marcar status_interno como NÃO ENCONTRADO NO SISREG (mas sem desativar a flag 'active' automaticamente)
+      // Apenas para registros que ainda estão no ciclo inicial de fila (NA_FILA, EM_CONVOCACAO, SEM_CONTATO)
       const { error: updateError } = await supabase
         .from('fila_solicitacoes')
         .update({ status_interno: 'NAO_ENCONTRADO_SISREG' })
         .eq('active', true)
         .in('cod_sigtap', codProcedimentosImportados)
+        .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
         .or(`ultima_importacao_id.neq.${importLote.id},ultima_importacao_id.is.null`)
 
       if (updateError) console.error('Erro ao atualizar ausentes:', updateError)

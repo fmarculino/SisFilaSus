@@ -19,6 +19,9 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 ### Documentado
 * **Fluxo de Encerramento (Baixas)**: Detalhamento no manual do operador e na arquitetura sobre como dar alta cirúrgica (`ALTA`), procedimento concluído (`PROCEDIMENTO_REALIZADO`), ou registrar óbito (`OBITO`) e desistência (`DESISTENCIA`) pelo fluxo de aprovação.
 
+### Corrigido
+* **Regras de Atualização do Sisreg (Preservação de Status Operacionais)**: Corrigido bug em que pacientes com status avançados (como `ENCAMINHADO`, `INTERNADO`, etc.) eram indevidamente marcados como `NAO_ENCONTRADO_SISREG` ("Fora do SISREG") caso não constassem nos novos arquivos CSV importados do SISREG. Agora, o importador e a trigger do banco de dados protegem esses registros, permitindo que a marcação de ausência ocorra apenas para pacientes em status iniciais de fila (`NA_FILA`, `EM_CONVOCACAO`, `SEM_CONTATO`).
+
 ---
 
 ## [0.6.2-beta] — 2026-06-07
