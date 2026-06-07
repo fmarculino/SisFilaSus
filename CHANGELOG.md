@@ -11,7 +11,7 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
   * Se a data de internação não for preenchida no encaminhamento, o status do paciente passa a ser `ENCAMINHADO`.
   * Se for preenchida, passa diretamente a `INTERNADO`.
   * Possibilidade de atualizar um paciente de `ENCAMINHADO` para `INTERNADO` preenchendo a data de internação no drawer.
-* **Badge e Seletores na UI**: Adicionado badge de cor ciano/sky para `ENCAMINHADO` e adicionado o status no seletor manual.
+* **Badge e Seletores na UI**: Adicionado badge de cor ciano/sky para `ENCAMINHADO`, adicionado o status no seletor manual, nos filtros de pesquisa de status da Fila de Espera, no Portal do Cidadão e nos Relatórios Gerenciais.
 
 ### Documentado
 * **Fluxo de Encerramento (Baixas)**: Detalhamento no manual do operador e na arquitetura sobre como dar alta cirúrgica (`ALTA`), procedimento concluído (`PROCEDIMENTO_REALIZADO`), ou registrar óbito (`OBITO`) e desistência (`DESISTENCIA`) pelo fluxo de aprovação.
