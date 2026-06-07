@@ -608,8 +608,10 @@ export function FilaClient({
                   className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
                 >
                   <option value="">Todos os Eixos</option>
-                  <option value="1">Ambulatorial (Consultas/Exames)</option>
-                  <option value="3">Internação (Cirurgias Eletivas)</option>
+                  <option value="1">Tipo 1 — Ambulatorial / Regulação</option>
+                  <option value="2">Tipo 2 — SADT (Apoio Diagnóstico)</option>
+                  <option value="3">Tipo 3 — Internação Eletiva</option>
+                  <option value="4">Tipo 4 — Urgência / Alta Complexidade</option>
                 </select>
               </div>
 
