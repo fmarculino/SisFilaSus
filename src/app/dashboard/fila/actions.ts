@@ -45,10 +45,33 @@ export async function fetchSolicitacaoExtraData(codSolicitacao: number) {
     .select('id, titulo, corpo')
     .eq('active', true)
 
+  // 4. Buscar prestadores ativos para o painel de encaminhamento
+  const { data: prestadores } = await supabase
+    .from('hospitais_prestadores')
+    .select('id, cnes, nome, especialidades')
+    .eq('active', true)
+    .order('nome')
+
+  // 5. Buscar hospital já vinculado à solicitação (se houver)
+  const { data: solicitacao } = await supabase
+    .from('fila_solicitacoes')
+    .select(`
+      hospital_encaminhado_id,
+      data_encaminhamento,
+      data_internacao,
+      hospitais_prestadores (id, cnes, nome)
+    `)
+    .eq('cod_solicitacao', codSolicitacao)
+    .single()
+
   return {
     snapshots: snapshots || [],
     contatos: contatos || [],
-    templates: templates || []
+    templates: templates || [],
+    prestadores: prestadores || [],
+    hospitalEncaminhado: solicitacao?.hospitais_prestadores || null,
+    dataEncaminhamento: solicitacao?.data_encaminhamento || null,
+    dataInternacao: solicitacao?.data_internacao || null,
   }
 }
 
@@ -226,6 +249,51 @@ export async function updateSolicitacaoStatus(codSolicitacao: number, novoStatus
     registro_id: codSolicitacao.toString(),
     dados_anteriores: previous,
     dados_novos: { status_interno: novoStatus }
+  })
+
+  revalidatePath('/dashboard/fila')
+}
+export async function encaminharParaPrestador(
+  codSolicitacao: number,
+  prestadorId: string,
+  dataInternacao?: string
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+
+  // Obter dados anteriores para auditoria
+  const { data: previous } = await supabase
+    .from('fila_solicitacoes')
+    .select('status_interno, hospital_encaminhado_id, data_encaminhamento')
+    .eq('cod_solicitacao', codSolicitacao)
+    .single()
+
+  const updatePayload: Record<string, unknown> = {
+    hospital_encaminhado_id: prestadorId,
+    data_encaminhamento: new Date().toISOString().split('T')[0],
+    status_interno: 'INTERNADO',
+    updated_at: new Date().toISOString(),
+  }
+
+  if (dataInternacao) {
+    updatePayload.data_internacao = dataInternacao
+  }
+
+  const { error } = await supabase
+    .from('fila_solicitacoes')
+    .update(updatePayload)
+    .eq('cod_solicitacao', codSolicitacao)
+
+  if (error) throw new Error(`Erro ao encaminhar paciente: ${error.message}`)
+
+  // Auditoria
+  await logAudit({
+    acao: 'ENCAMINHAR_PRESTADOR',
+    tabela: 'fila_solicitacoes',
+    registro_id: codSolicitacao.toString(),
+    dados_anteriores: previous,
+    dados_novos: updatePayload,
   })
 
   revalidatePath('/dashboard/fila')

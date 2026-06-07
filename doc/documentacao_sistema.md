@@ -51,8 +51,13 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
 * Painel centralizado para coordenadores revisarem e julgarem (Aprovar/Rejeitar) propostas de movimentações feitas por operadores.
 * Aplicação transacionada e automática de alterações na fila de solicitações via gatilhos (triggers) do PostgreSQL.
 
-### 🏥 Cadastro de Prestadores (Hospitais)
+### 🏥 Cadastro e Encaminhamento para Prestadores (Hospitais)
 * CRUD de hospitais com CNES, nome e multiseleção de especialidades médicas atendidas, persistido em array nativo do Postgres.
+* **Fluxo de Encaminhamento Hospitalar**: Na Fila de Espera, pacientes com status `CONVOCADO_CONFIRMADO` exibem um novo painel "Encaminhamento Hospitalar" no drawer lateral. O operador seleciona o hospital destino (apenas prestadores ativos são listados) e confirma o encaminhamento, que:
+  * Grava `hospital_encaminhado_id` e `data_encaminhamento` na `fila_solicitacoes`.
+  * Atualiza automaticamente o `status_interno` para `INTERNADO`.
+  * Registra a operação em `audit_log` com a ação `ENCAMINHAR_PRESTADOR`.
+* **Redirecionamento**: Pacientes já `INTERNADO` podem ter o hospital redirecionado a qualquer momento pelo painel.
 
 ### 📊 Relatórios Gerenciais Avançados
 Painel analítico completo para suporte à decisão da gestão municipal, estruturado em abas dinâmicas:
@@ -145,6 +150,26 @@ SisFilaSus/
 ---
 
 ## 📋 6. Changelog
+
+### v0.6.2 — Encaminhamento Hospitalar (2026-06-07)
+
+#### 🆕 Novidades
+
+**Fluxo de Encaminhamento para Prestadores:**
+- Novo painel **"Encaminhamento Hospitalar"** no drawer lateral da Fila de Espera, visível exclusivamente para pacientes nos status `CONVOCADO_CONFIRMADO` ou `INTERNADO`.
+- Dropdown com lista de todos os prestadores ativos (nome + CNES), carregado dinamicamente na abertura do drawer.
+- Campo opcional de **Data de Internação** para registro da data prevista ou real.
+- Botão **"Confirmar Encaminhamento"** que executa a server action, grava o prestador vinculado e muda o status para `INTERNADO`.
+- Ao reabrir o drawer de um paciente já internado, o painel exibe o hospital vinculado (nome, CNES, data de encaminhamento e data de internação) e oferece a opção de redirecionamento.
+- Aviso contextual quando não há prestadores ativos cadastrados, com orientação para o módulo de cadastro.
+
+**Server Action `encaminharParaPrestador` (`fila/actions.ts`):**
+- Grava `hospital_encaminhado_id`, `data_encaminhamento` e opcionalmente `data_internacao`.
+- Força `status_interno = 'INTERNADO'` atomicamente na mesma operação.
+- Registra auditoria imutável em `audit_log` com ação `ENCAMINHAR_PRESTADOR`.
+
+**`fetchSolicitacaoExtraData` enriquecida:**
+- Agora também retorna `prestadores[]` (prestadores ativos), `hospitalEncaminhado`, `dataEncaminhamento` e `dataInternacao`, eliminando round-trips extras ao banco.
 
 ### v0.6.1 — Melhorias de Dashboard, Filtros e Segurança (2026-06-07)
 

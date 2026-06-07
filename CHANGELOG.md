@@ -4,7 +4,17 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.1-beta] — 2026-06-06 (Atual)
+## [0.6.2-beta] — 2026-06-07 (Atual)
+### Adicionado
+* **Fluxo de Encaminhamento Hospitalar**: Implementado o elo entre o módulo de Prestadores e a Fila de Espera. O operador agora pode encaminhar um paciente com status `CONVOCADO_CONFIRMADO` diretamente para um hospital prestador cadastrado, alterando automaticamente o status para `INTERNADO` e gravando data de encaminhamento e data de internação.
+* **Painel "Encaminhamento Hospitalar" no Drawer da Fila**: Nova seção visual (cor índigo) que aparece apenas para pacientes nos status `CONVOCADO_CONFIRMADO` ou `INTERNADO`, exibindo o hospital já vinculado (nome, CNES, datas) e o formulário de seleção de prestador.
+* **Redirecionamento de Prestador**: Quando um paciente já está `INTERNADO` com um hospital vinculado, o painel permite selecionar um novo hospital e registrar a transferência.
+* **Auditoria de Encaminhamento**: Cada encaminhamento gera um registro imutável em `audit_log` com a ação `ENCAMINHAR_PRESTADOR`, contendo os dados anteriores e novos.
+* **Server Action `encaminharParaPrestador`**: Nova action em `fila/actions.ts` que grava `hospital_encaminhado_id`, `data_encaminhamento`, `data_internacao` e `status_interno = 'INTERNADO'` na tabela `fila_solicitacoes`.
+
+---
+
+## [0.6.1-beta] — 2026-06-06
 ### Alterado
 * **Gerenciamento de Usuários (`/dashboard/usuarios`)**: Removida a opção de exclusão definitiva de contas. Substituída por botões de ação rápida de ativação e inativação (suspensão) de usuários diretamente na tabela.
 * **Backend de Usuários**: Removida a action `deleteUserAction` para impedir exclusão de credenciais a nível de API.

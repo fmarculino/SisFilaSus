@@ -107,6 +107,14 @@ erDiagram
         jsonb valor_novo
     }
 
+    hospitais_prestadores {
+        uuid id PK
+        varchar cnes UK
+        varchar nome
+        text[] especialidades
+        boolean active
+    }
+    fila_solicitacoes ||--o| hospitais_prestadores : "encaminhado para"
     fila_solicitacoes ||--|| pacientes : "pertence a"
     fila_solicitacoes ||--|| procedimentos : "procedimento"
     fila_solicitacoes ||--o| cids : "cid"

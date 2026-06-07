@@ -56,7 +56,29 @@ Toda tentativa de contato **deve** ser registrada no sistema para compor o hist�
 
 ---
 
-## ⚙️ 5. Alteração Manual de Status
+## 🏥 5. Encaminhamento para Hospital Prestador
+Quando um paciente com status **Confirmado** (`CONVOCADO_CONFIRMADO`) está pronto para ser internado em um hospital da rede, o operador realiza o encaminhamento diretamente no Drawer de Detalhes.
+
+### 📋 Como Encaminhar:
+1. Abra o **Drawer de Detalhes** clicando no ícone de olho do paciente na Fila de Espera.
+2. Role até o card **"Encaminhamento Hospitalar"** (cor índigo). Ele só aparece se o status for `CONVOCADO_CONFIRMADO` ou `INTERNADO`.
+3. No dropdown **"Selecionar Hospital Destino"**, escolha o hospital prestador. A lista exibe apenas hospitais **ativos** cadastrados em *Cadastros → Prestadores*.
+4. Preencha a **Data de Internação** (opcional) se já houver data definida.
+5. Clique em **"Confirmar Encaminhamento"** e confirme na caixa de diálogo.
+6. O sistema automaticamente:
+   * Grava o hospital vinculado e a data de encaminhamento.
+   * Atualiza o status do paciente para **Internado**.
+   * Registra a ação no log de auditoria.
+
+> [!TIP]
+> Se a lista de prestadores aparecer vazia, peça ao Coordenador ou Administrador que cadastre os hospitais da rede em **Cadastros → Prestadores (Hospitais)**.
+
+### 🔄 Redirecionar para Outro Hospital:
+Caso o paciente já esteja com status `INTERNADO` e precise ser transferido para outro hospital, o mesmo painel exibirá o hospital atual e permitirá selecionar um novo. O botão passará a exibir **"Redirecionar Hospital"**.
+
+---
+
+## ⚙️ 6. Alteração Manual de Status
 Caso você receba informações externas (ex: a Assistência Social informou óbito, ou a Unidade notificou que o paciente já realizou a cirurgia no hospital estadual):
 1. No Drawer de Detalhes, localize o campo **"Alterar Status Interno (Manual)"** (embaixo dos telefones).
 2. Selecione o status correto (ex: `PROCEDIMENTO_REALIZADO`, `INTERNADO`, `DESISTENCIA`, `OBITO`).

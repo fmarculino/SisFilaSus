@@ -9,7 +9,8 @@ import {
   Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
   ArrowUpDown
 } from 'lucide-react'
-import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus } from './actions'
+import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus, encaminharParaPrestador } from './actions'
+
 
 const formatPhone = (value: string) => {
   if (!value) return ''
@@ -111,12 +112,15 @@ export function FilaClient({
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerLoading, setDrawerLoading] = useState(false)
   
-  // Dados extras carregados via Actions no Drawer
   const [extraData, setExtraData] = useState<{
     snapshots: any[]
     contatos: any[]
     templates: any[]
-  }>({ snapshots: [], contatos: [], templates: [] })
+    prestadores: any[]
+    hospitalEncaminhado: any | null
+    dataEncaminhamento: string | null
+    dataInternacao: string | null
+  }>({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null })
 
   // Edição do Telefone do Paciente
   const [tel1, setTel1] = useState('')
@@ -139,6 +143,11 @@ export function FilaClient({
   const [newPos, setNewPos] = useState('')
   const [moveJustification, setMoveJustification] = useState('')
   const [savingMovement, setSavingMovement] = useState(false)
+
+  // Encaminhamento para prestador
+  const [selectedPrestadorId, setSelectedPrestadorId] = useState('')
+  const [dataInternaInput, setDataInternaInput] = useState('')
+  const [savingEncaminhamento, setSavingEncaminhamento] = useState(false)
 
   // Atualiza parâmetros da URL ao submeter filtros
   const handleApplyFilters = (e?: React.FormEvent) => {
@@ -218,8 +227,10 @@ export function FilaClient({
       setTel1(formatPhone(selectedSol.pacientes?.telefone_1 || ''))
       setTel2(formatPhone(selectedSol.pacientes?.telefone_2 || ''))
       setDrawerLoading(true)
-      setExtraData({ snapshots: [], contatos: [], templates: [] })
+      setExtraData({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null })
       setSelectedTemplateId('')
+      setSelectedPrestadorId('')
+      setDataInternaInput('')
 
       fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
         .then(res => {
@@ -347,6 +358,39 @@ export function FilaClient({
       alert(err.message || 'Erro ao propor movimentação.')
     } finally {
       setSavingMovement(false)
+    }
+  }
+
+  const handleEncaminhar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedSol) return
+    if (!selectedPrestadorId) {
+      alert('Selecione um hospital prestador.')
+      return
+    }
+    if (!confirm('Confirmar encaminhamento? O status será alterado para INTERNADO.')) return
+
+    setSavingEncaminhamento(true)
+    try {
+      await encaminharParaPrestador(
+        selectedSol.cod_solicitacao,
+        selectedPrestadorId,
+        dataInternaInput || undefined
+      )
+      // Atualizar estado local
+      const prestadorSelecionado = extraData.prestadores.find(p => p.id === selectedPrestadorId)
+      setSelectedSol({ ...selectedSol, status_interno: 'INTERNADO' })
+      setExtraData(prev => ({
+        ...prev,
+        hospitalEncaminhado: prestadorSelecionado || null,
+        dataEncaminhamento: new Date().toISOString().split('T')[0],
+        dataInternacao: dataInternaInput || null,
+      }))
+      alert('Paciente encaminhado com sucesso!')
+    } catch (err: any) {
+      alert(err.message || 'Erro ao encaminhar paciente.')
+    } finally {
+      setSavingEncaminhamento(false)
     }
   }
 
@@ -925,7 +969,103 @@ export function FilaClient({
                   </div>
                 </div>
 
-                {/* 2. Módulo de Convocação WhatsApp */}
+                {/* 2. Painel de Encaminhamento para Hospital */}
+                {(selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'INTERNADO') && (
+                  <div className="bento-card p-6 border-indigo-500/20 bg-indigo-500/5 space-y-4">
+                    <div className="flex items-center gap-2 text-indigo-400">
+                      <Activity className="h-5 w-5" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Encaminhamento Hospitalar</span>
+                    </div>
+
+                    {/* Hospital já vinculado */}
+                    {extraData.hospitalEncaminhado ? (
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                          <CheckCircle2 className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+                          <div className="text-xs space-y-0.5">
+                            <p className="font-black text-foreground">{extraData.hospitalEncaminhado.nome}</p>
+                            {extraData.hospitalEncaminhado.cnes && (
+                              <p className="text-[10px] font-mono text-muted-foreground">CNES: {extraData.hospitalEncaminhado.cnes}</p>
+                            )}
+                            {extraData.dataEncaminhamento && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Encaminhado em: {new Date(extraData.dataEncaminhamento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                            {extraData.dataInternacao && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Data de Internação: {new Date(extraData.dataInternacao + 'T00:00:00').toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {selectedSol.status_interno === 'INTERNADO' && (
+                          <p className="text-[10px] text-muted-foreground font-semibold">
+                            Para redirecionar, selecione um novo hospital abaixo.
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Formulário de encaminhamento */}
+                    {selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'INTERNADO' ? (
+                      <form onSubmit={handleEncaminhar} className="space-y-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                            {extraData.hospitalEncaminhado ? 'Redirecionar para outro Hospital' : 'Selecionar Hospital Destino'}
+                          </label>
+                          {drawerLoading ? (
+                            <div className="rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs text-muted-foreground">Carregando prestadores...</div>
+                          ) : extraData.prestadores.length === 0 ? (
+                            <div className="flex items-center gap-2 p-3 bg-amber-500/5 text-amber-500 rounded-xl text-xs font-bold border border-amber-500/20">
+                              <AlertTriangle className="h-4 w-4 shrink-0" />
+                              <span>Nenhum prestador ativo cadastrado. Acesse Cadastros → Prestadores.</span>
+                            </div>
+                          ) : (
+                            <select
+                              value={selectedPrestadorId}
+                              onChange={(e) => setSelectedPrestadorId(e.target.value)}
+                              required
+                              className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-indigo-400 transition-all text-foreground"
+                            >
+                              <option value="">— Selecione o hospital —</option>
+                              {extraData.prestadores.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nome}{p.cnes ? ` (CNES: ${p.cnes})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Data de Internação (Opcional)</label>
+                          <input
+                            type="date"
+                            value={dataInternaInput}
+                            onChange={(e) => setDataInternaInput(e.target.value)}
+                            className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-indigo-400 transition-all text-foreground"
+                          />
+                        </div>
+
+                        {extraData.prestadores.length > 0 && (
+                          <div className="flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={savingEncaminhamento || !selectedPrestadorId}
+                              className="px-5 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-md shadow-indigo-500/20"
+                            >
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                              {savingEncaminhamento ? 'Encaminhando...' : extraData.hospitalEncaminhado ? 'Redirecionar Hospital' : 'Confirmar Encaminhamento'}
+                            </button>
+                          </div>
+                        )}
+                      </form>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* 3. Módulo de Convocação WhatsApp */}
                 <div className="bento-card p-6 border-teal-500/20 bg-teal-500/5 space-y-4">
                   <div className="flex items-center gap-2 text-teal-500">
                     <MessageSquare className="h-5 w-5" />
