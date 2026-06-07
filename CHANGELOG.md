@@ -12,6 +12,7 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
   * Se for preenchida, passa diretamente a `INTERNADO`.
   * Possibilidade de atualizar um paciente de `ENCAMINHADO` para `INTERNADO` preenchendo a data de internação no drawer.
 * **Badge e Seletores na UI**: Adicionado badge de cor ciano/sky para `ENCAMINHADO`, adicionado o status no seletor manual, nos filtros de pesquisa de status da Fila de Espera, no Portal do Cidadão e nos Relatórios Gerenciais.
+* **Busca Inteligente por Múltiplos Termos (Fila de Espera e Cadastro de Pacientes)**: Implementado suporte a buscas compostas por termos separados por espaços (ex: buscar "FERNANDO GUIMARAES" para achar "FERNANDO MARCULINO GUIMARAES JUNIOR"). O sistema agora quebra os termos e realiza buscas do tipo `AND` nativas no banco de dados, sem necessidade de caracteres especiais.
 
 ### Alterado
 * **Rede de Prestadores (Segurança de Dados)**: Removida a opção de exclusão física de prestadores (hospitais/clínicas) do painel e da API backend para garantir a integridade de dados e os históricos de encaminhamento. Os prestadores agora devem ser inativados caso não estejam mais disponíveis para receber pacientes.

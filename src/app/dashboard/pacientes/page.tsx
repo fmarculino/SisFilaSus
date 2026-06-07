@@ -57,7 +57,11 @@ export default async function PacientesPage({
         query = query.or(`cns_usuario.like.%${cleanDigits}%,cpf_usuario.like.%${cleanDigits}%`)
       }
     } else {
-      query = query.ilike('nome_usuario', `%${searchVal}%`)
+      // Busca de nome multi-termo inteligente
+      const words = searchVal.split(/\s+/).filter(w => w.length > 0)
+      words.forEach(word => {
+        query = query.ilike('nome_usuario', `%${word}%`)
+      })
     }
   }
 

@@ -108,8 +108,11 @@ export default async function FilaPage({
         query = query.eq('cod_solicitacao', parseInt(cleanDigits, 10))
       }
     } else {
-      // Nome do usuário
-      query = query.ilike('pacientes.nome_usuario', `%${searchVal}%`)
+      // Nome do usuário (Busca multi-termo inteligente)
+      const words = searchVal.split(/\s+/).filter(w => w.length > 0)
+      words.forEach(word => {
+        query = query.ilike('pacientes.nome_usuario', `%${word}%`)
+      })
     }
   }
 
