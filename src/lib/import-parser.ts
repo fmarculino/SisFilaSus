@@ -67,6 +67,23 @@ export async function parseAndImportCSV(
     const cod_solicitacao = parseInt(codSolStr, 10)
     if (isNaN(cod_solicitacao)) continue
 
+    // Município Solicitante / Origem
+    let munCode = ''
+    let munNome = ''
+    let centralReguladoraNome = ''
+
+    if (isAmbulatorial) {
+      // Ambulatorial
+      munCode = '150420' // Default para Marabá se não mapeado
+      munNome = 'MARABA'
+      centralReguladoraNome = getColValue(rowCols, 'NOME CNES CENTRAL REGULADORA') || 'CENTRAL DE REGULACAO DE MARABA'
+    } else {
+      // Internação / Eletivas
+      munCode = getColValue(rowCols, 'COD. CENTRAL REGULADORA SOLICITANTE')
+      munNome = getColValue(rowCols, 'NOME CENTRAL REGULADORA SOLICITANTE')
+      centralReguladoraNome = getColValue(rowCols, 'NOME CENTRAL REGULADORA')
+    }
+
     // Paciente
     const cns_usuario = getColValue(rowCols, 'CNS DO USUARIO')
     if (!cns_usuario) continue // CNS é obrigatório
@@ -85,25 +102,9 @@ export async function parseAndImportCSV(
       data_nascimento,
       sexo,
       nome_mae,
+      municipio_origem: munNome ? munNome.toUpperCase() : null,
       updated_at: new Date().toISOString()
     })
-
-    // Município Solicitante / Origem
-    let munCode = ''
-    let munNome = ''
-    let centralReguladoraNome = ''
-
-    if (isAmbulatorial) {
-      // Ambulatorial
-      munCode = '150420' // Default para Marabá se não mapeado
-      munNome = 'MARABA'
-      centralReguladoraNome = getColValue(rowCols, 'NOME CNES CENTRAL REGULADORA') || 'CENTRAL DE REGULACAO DE MARABA'
-    } else {
-      // Internação / Eletivas
-      munCode = getColValue(rowCols, 'COD. CENTRAL REGULADORA SOLICITANTE')
-      munNome = getColValue(rowCols, 'NOME CENTRAL REGULADORA SOLICITANTE')
-      centralReguladoraNome = getColValue(rowCols, 'NOME CENTRAL REGULADORA')
-    }
 
     if (munCode) {
       municipiosMap.set(munCode, {
@@ -421,6 +422,48 @@ export async function parseAndImportCSV(
 
       if (updateError) console.error('Erro ao atualizar ausentes:', updateError)
     }
+  }
+
+  // 10. Identificar divergências críticas de status (Óbitos, Desistências, Recusas e Internados ativos no SISREG)
+  try {
+    const { data: divergentes } = await supabase
+      .from('fila_solicitacoes')
+      .select('cod_solicitacao, status_interno, status_sisreg')
+      .eq('ultima_importacao_id', importLote.id)
+      .in('status_interno', ['OBITO', 'DESISTENCIA', 'CONVOCADO_RECUSOU', 'INTERNADO'])
+      .not('posicao_fila', 'is', null)
+
+    if (divergentes && divergentes.length > 0) {
+      const payloadDiv = divergentes.map(d => {
+        let tipo = 'DESISTENCIA_ATIVA'
+        if (d.status_interno === 'OBITO') {
+          tipo = 'OBITO_ATIVO'
+        } else if (d.status_interno === 'CONVOCADO_RECUSOU') {
+          tipo = 'RECUSA_ATIVA'
+        } else if (d.status_interno === 'INTERNADO') {
+          tipo = 'INTERNADO_ATIVO'
+        }
+        return {
+          cod_solicitacao: d.cod_solicitacao,
+          importacao_id: importLote.id,
+          tipo_divergencia: tipo,
+          status_sisreg_importado: d.status_sisreg,
+          status_interno_local: d.status_interno,
+          resolvido: false,
+          updated_at: new Date().toISOString()
+        }
+      })
+
+      const { error: insertDivErr } = await supabase
+        .from('divergencias_sisreg')
+        .upsert(payloadDiv, { onConflict: 'cod_solicitacao' })
+
+      if (insertDivErr) {
+        console.error('Erro ao salvar divergências detectadas:', insertDivErr.message)
+      }
+    }
+  } catch (err: any) {
+    console.error('Falha crítica ao detectar divergências:', err.message)
   }
 
   // Atualizar estatísticas do lote de importação

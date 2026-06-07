@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { 
   LayoutDashboard, ClipboardList, CalendarCheck, History,
   Users, Building2, Download, ScrollText, Settings, Lock, 
-  Shield, ChevronDown, Stethoscope, UserCog
+  Shield, ChevronDown, Stethoscope, UserCog, RefreshCw
 } from 'lucide-react'
 import { AboutMenu } from './about-menu'
 
@@ -34,6 +34,7 @@ const navigation = [
     children: [
       { name: 'Convocações', href: '/dashboard/convocacao', icon: CalendarCheck, roles: ADMIN_COORD_OPERADOR },
       { name: 'Movimentações', href: '/dashboard/movimentacoes', icon: History, roles: ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'MEDICO_REGULADOR'] },
+      { name: 'Sincronização SISREG', href: '/dashboard/sincronizacao', icon: RefreshCw, roles: ADMIN_COORD_OPERADOR },
       { name: 'Relatórios Gerenciais', href: '/dashboard/relatorios', icon: ScrollText, roles: ADMIN_COORD },
     ]
   },

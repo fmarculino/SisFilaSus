@@ -33,6 +33,8 @@ interface PacientesClientProps {
   itemsPerPage: number
   currentPage: number
   searchParam: string
+  municipioParam: string
+  municipios: string[]
 }
 
 export function PacientesClient({
@@ -42,13 +44,16 @@ export function PacientesClient({
   totalItems,
   itemsPerPage,
   currentPage,
-  searchParam
+  searchParam,
+  municipioParam,
+  municipios
 }: PacientesClientProps) {
   const router = useRouter()
   const pathname = usePathname()
 
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes)
   const [search, setSearch] = useState(searchParam)
+  const [selectedMunicipio, setSelectedMunicipio] = useState(municipioParam)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | undefined>(undefined)
 
@@ -59,6 +64,10 @@ export function PacientesClient({
   useEffect(() => {
     setSearch(searchParam)
   }, [searchParam])
+
+  useEffect(() => {
+    setSelectedMunicipio(municipioParam)
+  }, [municipioParam])
 
   // Campos do Formulário
   const [nome, setNome] = useState('')
@@ -134,6 +143,7 @@ export function PacientesClient({
     e.preventDefault()
     const params = new URLSearchParams()
     if (search) params.set('search', search)
+    if (selectedMunicipio) params.set('municipio', selectedMunicipio)
     params.set('page', '1')
     params.set('limit', itemsPerPage.toString())
     router.push(`${pathname}?${params.toString()}`)
@@ -141,6 +151,7 @@ export function PacientesClient({
 
   const handleClearSearch = () => {
     setSearch('')
+    setSelectedMunicipio('')
     router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
   }
 
@@ -243,23 +254,15 @@ export function PacientesClient({
               Fichas de <span className="text-primary italic">Pacientes</span>
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Pesquise, cadastre e edite as informações de contato e residência dos cidadãos na regulação.
+              Pesquise e gerencie as fichas médicas, informações de contato e residência dos cidadãos na regulação.
             </p>
           </div>
-
-          <button
-            onClick={handleOpenCreate}
-            className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center gap-2 w-fit shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Cadastrar Paciente</span>
-          </button>
         </div>
 
         {/* Bento de Pesquisa */}
         <div className="bento-card p-6 md:p-8">
           <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="group flex-1">
+            <div className="group flex-1 w-full">
               <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Buscar Paciente</label>
               <div className="relative">
                 <input
@@ -273,20 +276,34 @@ export function PacientesClient({
               </div>
             </div>
 
-            <div className="flex gap-2 shrink-0">
+            <div className="group w-full sm:w-64">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Município</label>
+              <select
+                value={selectedMunicipio}
+                onChange={(e) => setSelectedMunicipio(e.target.value)}
+                className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+              >
+                <option value="">Todos os Municípios</option>
+                {municipios.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2 shrink-0 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all cursor-pointer"
+                className="w-1/2 sm:w-auto px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all cursor-pointer"
               >
                 Limpar
               </button>
               <button
                 type="submit"
-                className="px-6 py-3.5 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center gap-2"
+                className="w-1/2 sm:w-auto px-6 py-3.5 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-2"
               >
                 <Filter className="h-3.5 w-3.5" />
-                <span>Buscar</span>
+                <span>Filtrar</span>
               </button>
             </div>
           </form>

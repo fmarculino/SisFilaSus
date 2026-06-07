@@ -1,7 +1,11 @@
 -- Views for Phase 5: Management Reports
 
 -- 1. Espera por Procedimento
-CREATE OR REPLACE VIEW public.vw_relatorio_espera_procedimento AS
+DROP VIEW IF EXISTS public.vw_relatorio_espera_procedimento;
+
+CREATE OR REPLACE VIEW public.vw_relatorio_espera_procedimento 
+WITH (security_invoker = true)
+AS
 SELECT 
   p.cod_sigtap,
   p.desc_sigtap,
@@ -14,7 +18,11 @@ GROUP BY p.cod_sigtap, p.desc_sigtap
 ORDER BY media_espera_anos DESC;
 
 -- 2. Espera por Risco
-CREATE OR REPLACE VIEW public.vw_relatorio_espera_risco AS
+DROP VIEW IF EXISTS public.vw_relatorio_espera_risco;
+
+CREATE OR REPLACE VIEW public.vw_relatorio_espera_risco 
+WITH (security_invoker = true)
+AS
 SELECT 
   classificacao_risco,
   COUNT(*) as total_pacientes,
@@ -24,7 +32,11 @@ WHERE active = true
 GROUP BY classificacao_risco;
 
 -- 3. Produtividade do Operador
-CREATE OR REPLACE VIEW public.vw_relatorio_produtividade_operador AS
+DROP VIEW IF EXISTS public.vw_relatorio_produtividade_operador;
+
+CREATE OR REPLACE VIEW public.vw_relatorio_produtividade_operador 
+WITH (security_invoker = true)
+AS
 SELECT 
   u.nome as operador_nome,
   u.email as operador_email,
@@ -37,7 +49,11 @@ JOIN public.users u ON c.operador_id = u.id
 GROUP BY u.nome, u.email;
 
 -- 4. Distribuição por Status
-CREATE OR REPLACE VIEW public.vw_relatorio_status_distribuicao AS
+DROP VIEW IF EXISTS public.vw_relatorio_status_distribuicao;
+
+CREATE OR REPLACE VIEW public.vw_relatorio_status_distribuicao 
+WITH (security_invoker = true)
+AS
 SELECT 
   status_interno,
   COUNT(*) as total

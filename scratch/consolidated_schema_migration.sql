@@ -333,6 +333,12 @@ BEGIN
   -- Obtain authenticated user ID from Supabase context
   v_usuario_id := auth.uid();
 
+  -- IMPORTANTE: Se não houver usuário logado (ex: importação de planilha em background,
+  -- migração ou scripts do sistema), ignora a auditoria para não inundar o banco de dados.
+  IF v_usuario_id IS NULL THEN
+    RETURN COALESCE(new, old);
+  END IF;
+
   IF (TG_OP = 'INSERT') THEN
     v_acao := 'INSERT';
     v_dados_novos := to_jsonb(new);
@@ -552,18 +558,27 @@ CREATE POLICY "Edição de configurações exclusiva para gestores" ON public.co
 
 
 -- =========================================================
--- VIEWS DE DASHBOARD & RELATORIOS
+-- VIEWS DE DASHBOARD & RELATORIOS (SECURITY INVOKER)
 -- =========================================================
 
 -- Dashboard views
-CREATE OR REPLACE VIEW public.vw_dashboard_kpis AS
+DROP VIEW IF EXISTS public.vw_dashboard_kpis;
+CREATE OR REPLACE VIEW public.vw_dashboard_kpis 
+WITH (security_invoker = true)
+AS
 SELECT
   (SELECT COUNT(*) FROM public.fila_solicitacoes WHERE active = true) AS fila_total_ativa,
+  (SELECT COUNT(*) FROM public.fila_solicitacoes WHERE active = true AND modalidade_fila = 0) AS aguardando_consultas,
+  (SELECT COUNT(*) FROM public.fila_solicitacoes WHERE active = true AND modalidade_fila = 1) AS aguardando_exames,
   (SELECT COUNT(*) FROM public.fila_solicitacoes WHERE active = true AND modalidade_fila = 2) AS aguardando_cirurgias,
+  (SELECT COUNT(*) FROM public.fila_solicitacoes WHERE active = true AND (modalidade_fila = 3 OR modalidade_fila IS NULL)) AS demais_procedimentos,
   COALESCE((SELECT AVG(EXTRACT(epoch FROM (now() - data_solicitacao))) / (365.25 * 86400) FROM public.fila_solicitacoes WHERE active = true), 0) AS media_espera_anos,
   (SELECT COUNT(*) FROM public.contatos WHERE created_at >= timezone('utc'::text, CURRENT_DATE)) AS contatos_hoje;
 
-CREATE OR REPLACE VIEW public.vw_dashboard_top_procedimentos AS
+DROP VIEW IF EXISTS public.vw_dashboard_top_procedimentos;
+CREATE OR REPLACE VIEW public.vw_dashboard_top_procedimentos 
+WITH (security_invoker = true)
+AS
 SELECT 
   p.cod_sigtap,
   p.desc_sigtap,
@@ -573,9 +588,12 @@ JOIN public.procedimentos p ON f.cod_sigtap = p.cod_sigtap
 WHERE f.active = true
 GROUP BY p.cod_sigtap, p.desc_sigtap
 ORDER BY total DESC
-LIMIT 5;
+LIMIT 10;
 
-CREATE OR REPLACE VIEW public.vw_dashboard_risco AS
+DROP VIEW IF EXISTS public.vw_dashboard_risco;
+CREATE OR REPLACE VIEW public.vw_dashboard_risco 
+WITH (security_invoker = true)
+AS
 SELECT 
   classificacao_risco,
   COUNT(*) as total
@@ -583,7 +601,10 @@ FROM public.fila_solicitacoes
 WHERE active = true
 GROUP BY classificacao_risco;
 
-CREATE OR REPLACE VIEW public.vw_dashboard_evolucao AS
+DROP VIEW IF EXISTS public.vw_dashboard_evolucao;
+CREATE OR REPLACE VIEW public.vw_dashboard_evolucao 
+WITH (security_invoker = true)
+AS
 SELECT
   id as importacao_id,
   nome_arquivo,
@@ -594,7 +615,10 @@ ORDER BY COALESCE(data_exportacao_sisreg, created_at) ASC
 LIMIT 10;
 
 -- Relatórios views
-CREATE OR REPLACE VIEW public.vw_relatorio_espera_procedimento AS
+DROP VIEW IF EXISTS public.vw_relatorio_espera_procedimento;
+CREATE OR REPLACE VIEW public.vw_relatorio_espera_procedimento 
+WITH (security_invoker = true)
+AS
 SELECT 
   p.cod_sigtap,
   p.desc_sigtap,
@@ -606,7 +630,10 @@ WHERE f.active = true
 GROUP BY p.cod_sigtap, p.desc_sigtap
 ORDER BY media_espera_anos DESC;
 
-CREATE OR REPLACE VIEW public.vw_relatorio_espera_risco AS
+DROP VIEW IF EXISTS public.vw_relatorio_espera_risco;
+CREATE OR REPLACE VIEW public.vw_relatorio_espera_risco 
+WITH (security_invoker = true)
+AS
 SELECT 
   classificacao_risco,
   COUNT(*) as total_pacientes,
@@ -615,7 +642,10 @@ FROM public.fila_solicitacoes
 WHERE active = true
 GROUP BY classificacao_risco;
 
-CREATE OR REPLACE VIEW public.vw_relatorio_produtividade_operador AS
+DROP VIEW IF EXISTS public.vw_relatorio_produtividade_operador;
+CREATE OR REPLACE VIEW public.vw_relatorio_produtividade_operador 
+WITH (security_invoker = true)
+AS
 SELECT 
   u.nome as operador_nome,
   u.email as operador_email,
@@ -627,7 +657,10 @@ FROM public.contatos c
 JOIN public.users u ON c.operador_id = u.id
 GROUP BY u.nome, u.email;
 
-CREATE OR REPLACE VIEW public.vw_relatorio_status_distribuicao AS
+DROP VIEW IF EXISTS public.vw_relatorio_status_distribuicao;
+CREATE OR REPLACE VIEW public.vw_relatorio_status_distribuicao 
+WITH (security_invoker = true)
+AS
 SELECT 
   status_interno,
   COUNT(*) as total

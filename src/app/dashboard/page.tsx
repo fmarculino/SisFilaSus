@@ -39,7 +39,15 @@ export default async function DashboardPage() {
     supabase.from('vw_dashboard_evolucao').select('*')
   ])
 
-  const kpis = kpisRes.data || { fila_total_ativa: 0, aguardando_cirurgias: 0, media_espera_anos: 0, contatos_hoje: 0 }
+  const kpis = kpisRes.data || { 
+    fila_total_ativa: 0, 
+    aguardando_consultas: 0, 
+    aguardando_exames: 0, 
+    aguardando_cirurgias: 0, 
+    demais_procedimentos: 0, 
+    media_espera_anos: 0, 
+    contatos_hoje: 0 
+  }
   const topProcedimentos = topProcedsRes.data || []
   const riscoData = riscoRes.data || []
   const evolucaoData = evolucaoRes.data || []
@@ -89,7 +97,7 @@ export default async function DashboardPage() {
         {/* Bento Grid dos Indicadores Principais (KPIs) */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Card 1: Fila Total Ativa */}
-          <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-primary/40 transition-all duration-300">
+          <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-primary/40 transition-all duration-300 sm:col-span-2 lg:col-span-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fila Total Ativa</span>
               <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform duration-300">
@@ -109,7 +117,49 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 2: Aguardando Cirurgias */}
+          {/* Card 2: Aguardando Consultas */}
+          <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-indigo-500/40 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Aguardando Consultas</span>
+              <div className="h-8 w-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform duration-300">
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-4xl font-black text-foreground tracking-tighter">
+                {kpis.aguardando_consultas.toLocaleString('pt-BR')}
+              </span>
+              <div className="text-[9px] text-indigo-500 font-black uppercase tracking-widest mt-2">
+                Consultas agendadas/fila
+              </div>
+            </div>
+            <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+              <CalendarCheck className="h-32 w-32 text-indigo-500" />
+            </div>
+          </div>
+
+          {/* Card 3: Aguardando Exames */}
+          <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-cyan-500/40 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Aguardando Exames</span>
+              <div className="h-8 w-8 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:scale-110 transition-transform duration-300">
+                <Activity className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-4xl font-black text-foreground tracking-tighter">
+                {kpis.aguardando_exames.toLocaleString('pt-BR')}
+              </span>
+              <div className="text-[9px] text-cyan-500 font-black uppercase tracking-widest mt-2">
+                Exames e procedimentos
+              </div>
+            </div>
+            <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+              <Activity className="h-32 w-32 text-cyan-500" />
+            </div>
+          </div>
+
+          {/* Card 4: Aguardando Cirurgias */}
           <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-teal-500/40 transition-all duration-300">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Aguardando Cirurgias</span>
@@ -130,7 +180,28 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 3: Média de Espera */}
+          {/* Card 5: Demais Procedimentos */}
+          <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-amber-500/40 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Demais Procedimentos</span>
+              <div className="h-8 w-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform duration-300">
+                <FileText className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-4xl font-black text-foreground tracking-tighter">
+                {kpis.demais_procedimentos.toLocaleString('pt-BR')}
+              </span>
+              <div className="text-[9px] text-amber-500 font-black uppercase tracking-widest mt-2">
+                Outras especialidades
+              </div>
+            </div>
+            <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+              <FileText className="h-32 w-32 text-amber-500" />
+            </div>
+          </div>
+
+          {/* Card 6: Tempo Médio de Espera */}
           <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-rose-500/40 transition-all duration-300">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tempo Médio de Espera</span>
@@ -152,7 +223,7 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 4: Contatos Hoje */}
+          {/* Card 7: Contatos Hoje */}
           <div className="bento-card p-6 flex flex-col justify-between h-44 relative overflow-hidden group hover:border-emerald-500/40 transition-all duration-300">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Contatos Hoje</span>

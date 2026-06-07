@@ -14,6 +14,12 @@ BEGIN
   -- Obtain authenticated user ID from Supabase context
   v_usuario_id := auth.uid();
 
+  -- IMPORTANTE: Se não houver usuário logado (ex: importação de planilha em background,
+  -- migração ou scripts do sistema), ignora a auditoria para não inundar o banco de dados.
+  IF v_usuario_id IS NULL THEN
+    RETURN COALESCE(new, old);
+  END IF;
+
   IF (TG_OP = 'INSERT') THEN
     v_acao := 'INSERT';
     v_dados_novos := to_jsonb(new);

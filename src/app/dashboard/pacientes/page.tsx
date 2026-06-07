@@ -9,6 +9,7 @@ export default async function PacientesPage({
     page?: string
     limit?: string
     search?: string
+    municipio?: string
   }>
 }) {
   const supabase = await createClient()
@@ -60,12 +61,25 @@ export default async function PacientesPage({
     }
   }
 
+  if (resolvedParams.municipio) {
+    query = query.eq('municipio_origem', resolvedParams.municipio)
+  }
+
   // Ordenar alfabeticamente
   query = query
     .order('nome_usuario', { ascending: true })
     .range(offset, offset + limit - 1)
 
   const { data: pacientes, count } = await query
+
+  // Buscar municípios únicos na base de pacientes para popular o dropdown do filtro
+  const { data: dbCities } = await supabase
+    .from('pacientes')
+    .select('municipio_origem')
+
+  const municipios = Array.from(
+    new Set((dbCities || []).map(p => p.municipio_origem?.trim().toUpperCase()))
+  ).filter(Boolean).sort() as string[]
 
   return (
     <PacientesClient
@@ -76,6 +90,8 @@ export default async function PacientesPage({
       itemsPerPage={limit}
       currentPage={page}
       searchParam={resolvedParams.search || ''}
+      municipioParam={resolvedParams.municipio || ''}
+      municipios={municipios}
     />
   )
 }

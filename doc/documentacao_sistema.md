@@ -18,12 +18,21 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
 
 ### 📥 Motor de Importação Inteligente (SISREG CSV)
 * Parser robusto capaz de ler grandes arquivos CSV (> 50MB) de Internação (Cirurgias Eletivas) e Ambulatorial (Consultas/Exames).
-* Mecanismo de **Diff Automatizado**: identifica registros novos, atualizados e ausentes.
+* **Prevenção de Importação Duplicada**: Valida na API (`/api/importar`) se o arquivo (`nome_arquivo`) já foi importado anteriormente, retornando um erro impeditivo amigável com a data e hora do processamento original para evitar duplicidade de dados no banco.
+* **Mecanismo de Diff Automatizado**: identifica registros novos, atualizados e ausentes.
 * **Fallback de SIGTAP**: utiliza códigos internos de especialidades quando o SIGTAP vem vazio no SISREG (como exames laboratoriais).
 * **Tratamento de Ausentes ("Fora do SISREG")**: marca automaticamente com o status `NAO_ENCONTRADO_SISREG` os pacientes que saíram das planilhas ativas do SISREG.
 
+### 🔄 Motor de Sincronização e Gestão de Divergências SISREG
+* **Preservação de Dados de Campo**: Utiliza o gatilho `trigger_preserve_status_interno` no PostgreSQL para impedir que novas importações de planilhas sobreponham o status operacional local já trabalhado pelos operadores.
+* **Detecção Automática de Divergências**: Após cada lote de importação, o sistema cruza as bases e identifica conflitos críticos de status (ex: pacientes com óbito ou desistência confirmados no SisFilaSus, mas que continuam constando como ativos na fila do SISREG III).
+* **Painel de Sincronização**: Tela exclusiva para operadores e coordenadores reconciliarem pendências críticas com o SISREG, fornecendo um fluxo de tarefas acionável e funcionalidade de check ("Sincronizado") com logs de auditoria.
+
+
 ### 📋 Fila de Espera Operacional
-* Grid de visualização de pacientes com filtros por Risco, Procedimento, Eixo e Município.
+* Grid de visualização de pacientes com filtros por Risco, Procedimento, Especialidade (ex: Cardiologia, Urologia, Ginecologia), Modalidade (Consulta, Exame, Cirurgia, Demais), Eixo e Município.
+* **Busca Otimizada e Inteligente**: O campo de busca remove automaticamente caracteres especiais (pontos, traços e espaços) e direciona a consulta no banco com base no número de dígitos informados: 15 dígitos para CNS, 11 dígitos para CPF, menos de 11 dígitos para Código de Solicitação, e texto geral para busca alfabética de nomes.
+* **Otimização de RLS (Banco de Dados)**: Funções de verificação de permissões do RLS classificadas como `STABLE` para reduzir varreduras sequenciais repetitivas no banco, eliminando problemas de timeout (tempo de resposta reduzido de > 8 segundos para ~220ms).
 * Checkbox para limpeza de cadastros antigos (> 5 anos) e checkbox para omitir registros fora do SISREG por padrão.
 * Gaveta Lateral de Detalhes:
   * Dados pessoais e contatos do paciente.
@@ -64,6 +73,7 @@ Painel analítico completo para suporte à decisão da gestão municipal, estrut
 
 ### 🔍 Auditoria Geral de Sistema
 * Rastreamento imutável de todas as ações de escrita (`INSERT`, `UPDATE`, `DELETE`) de Pacientes, Solicitações, Contatos e Usuários.
+* **Foco em Ações Humanas**: O gatilho SQL `process_audit_log` foi otimizado para registrar apenas ações executadas por usuários humanos autenticados (`auth.uid() IS NOT NULL`). Operações automatizadas, scripts e a importação em lote de CSVs do SISREG são ignorados para evitar o inchaço e a lentidão do banco de dados.
 * Tela de visualização com comparador de Diffs que destaca chaves alteradas.
 
 ### 🌐 Portal do Cidadão (Público)
@@ -131,3 +141,50 @@ SisFilaSus/
 ## 🚀 5. Deploy em Produção
 * **Build**: Execute `npm run build` para testar e gerar o bundle de produção otimizado.
 * **Ambiente**: O SisFilaSus está configurado para deploy em VPS própria via Coolify/Docker ou plataformas serverless como Vercel/Netlify.
+
+---
+
+## 📋 6. Changelog
+
+### v0.6.1 — Melhorias de Dashboard, Filtros e Segurança (2026-06-07)
+
+#### 🆕 Novidades
+
+**Dashboard — 4 novos cards de categorização por modalidade:**
+- Card **Aguardando Consultas** (`modalidade_fila = 0`)
+- Card **Aguardando Exames** (`modalidade_fila = 1`)
+- Card **Aguardando Cirurgias** (`modalidade_fila = 2`)
+- Card **Demais Procedimentos** (`modalidade_fila = 3` ou `NULL`)
+- View `vw_dashboard_kpis` atualizada no banco de dados para suportar os novos contadores.
+
+**Dashboard — Top 10 procedimentos:**
+- View `vw_dashboard_top_procedimentos` atualizada com `LIMIT 10` (era 5).
+
+**Fila de Espera — Filtros avançados:**
+- Novo dropdown de **Especialidade** (baseado no `grupo_descricao` dos procedimentos cadastrados — dinâmico, expandido automaticamente conforme novos arquivos do SISREG são importados).
+- Novo dropdown de **Modalidade** (Consulta, Exame, Cirurgia, Demais Procedimentos).
+- Novo dropdown de **Município de Origem** nos filtros de busca.
+
+**Identificação de origem dos Status Internos:**
+- O seletor de Status Interno agora exibe o prefixo `[SISREG]` ou `[SisFilaSus]` antes de cada opção, facilitando a compreensão da origem de cada estado operacional.
+
+#### 🐛 Correções
+
+**Fichas de Pacientes — Correção de Municípios de Origem:**
+- Corrigido bug no `import-parser.ts` onde o campo `municipio_origem` não era gravado na tabela de pacientes no momento da importação.
+- Script de correção executado no banco de dados corrigiu **982 fichas de pacientes** que estavam com município nulo ou incorreto.
+- O filtro de municípios na tela de Fichas de Pacientes agora lista todos os municípios reais (ex: Abel Figueiredo, São Domingos do Araguaia, etc.).
+
+**Fichas de Pacientes — Remoção do botão "Cadastrar Paciente":**
+- Removido o botão de cadastro manual, pois o SisFilaSus gerencia dados provenientes do SISREG e cadastros manuais não teriam validade regulatória.
+
+#### 🔒 Segurança (Scripts SQL disponíveis para execução no Supabase)
+
+**Views com `security_invoker`:**
+- Todas as 8 views do sistema (`vw_dashboard_kpis`, `vw_dashboard_top_procedimentos`, `vw_dashboard_risco`, `vw_dashboard_evolucao`, `vw_relatorio_espera_procedimento`, `vw_relatorio_espera_risco`, `vw_relatorio_produtividade_operador`, `vw_relatorio_status_distribuicao`) foram atualizadas para usar `WITH (security_invoker = true)`, garantindo que as consultas respeitem as políticas de RLS do usuário autenticado.
+- Script de correção: `scratch/fix_security_invoker_views.sql`
+
+**Funções com `search_path` explícito:**
+- As 7 funções do banco (`apply_fila_movement`, `get_user_role`, `get_user_cnes_vinculo`, `preserve_status_interno`, `handle_new_user`, `update_updated_at_column`, `process_audit_log`) receberam `SET search_path = public, pg_temp` para mitigar o risco de *search_path hijacking*.
+- Script de correção: `scratch/fix_security_functions_search_path.sql`
+

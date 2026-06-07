@@ -37,6 +37,7 @@ interface FilaClientProps {
   currentPage: number
   procedimentos: any[]
   municipios: any[]
+  especialidades: string[]
   appliedFilters: {
     search: string
     proced: string
@@ -46,6 +47,8 @@ interface FilaClientProps {
     tipo: string
     antigas: string
     omitirForaSisreg: string
+    especialidade: string
+    modalidade: string
   }
 }
 
@@ -58,6 +61,7 @@ export function FilaClient({
   currentPage,
   procedimentos,
   municipios,
+  especialidades,
   appliedFilters,
 }: FilaClientProps) {
   const router = useRouter()
@@ -73,6 +77,8 @@ export function FilaClient({
   const [tipo, setTipo] = useState(appliedFilters.tipo)
   const [antigas, setAntigas] = useState(appliedFilters.antigas || 'false')
   const [omitirForaSisreg, setOmitirForaSisreg] = useState(appliedFilters.omitirForaSisreg || 'true')
+  const [especialidade, setEspecialidade] = useState(appliedFilters.especialidade || '')
+  const [modalidade, setModalidade] = useState(appliedFilters.modalidade || '')
 
   // Estados para busca incremental de procedimentos no filtro
   const [procedDropdownOpen, setProcedDropdownOpen] = useState(false)
@@ -141,6 +147,8 @@ export function FilaClient({
     
     if (search) params.set('search', search)
     if (proced) params.set('proced', proced)
+    if (especialidade) params.set('especialidade', especialidade)
+    if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
@@ -165,6 +173,8 @@ export function FilaClient({
     
     if (search) params.set('search', search)
     if (proced) params.set('proced', proced)
+    if (especialidade) params.set('especialidade', especialidade)
+    if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
@@ -191,6 +201,8 @@ export function FilaClient({
   const handleClearFilters = () => {
     setSearch('')
     setProced('')
+    setEspecialidade('')
+    setModalidade('')
     setMunicipio('')
     setRisco('')
     setStatus('')
@@ -531,6 +543,21 @@ export function FilaClient({
                 </select>
               </div>
 
+              {/* Especialidade */}
+              <div className="group">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Especialidade</label>
+                <select
+                  value={especialidade}
+                  onChange={(e) => setEspecialidade(e.target.value)}
+                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+                >
+                  <option value="">Todas as Especialidades</option>
+                  {especialidades.map(esp => (
+                    <option key={esp} value={esp}>{esp}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Classificação de Risco */}
               <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Risco</label>
@@ -554,21 +581,21 @@ export function FilaClient({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-semibold"
                 >
                   <option value="">Todos os Status</option>
-                  <option value="NA_FILA">Na Fila</option>
-                  <option value="EM_CONVOCACAO">Em Convocação</option>
-                  <option value="CONVOCADO_CONFIRMADO">Confirmado</option>
-                  <option value="CONVOCADO_RECUSOU">Recusou</option>
-                  <option value="SEM_CONTATO">Sem Contato</option>
-                  <option value="ABSENTEISMO">Absenteísmo</option>
-                  <option value="INTERNADO">Internado</option>
-                  <option value="PROCEDIMENTO_REALIZADO">Procedimento Realizado</option>
-                  <option value="ALTA">Alta</option>
-                  <option value="DESISTENCIA">Desistência</option>
-                  <option value="OBITO">Óbito</option>
-                  <option value="NAO_ENCONTRADO_SISREG">Fora do SISREG</option>
+                  <option value="NA_FILA">[SISREG] Na Fila</option>
+                  <option value="EM_CONVOCACAO">[SisFilaSus] Em Convocação</option>
+                  <option value="CONVOCADO_CONFIRMADO">[SisFilaSus] Confirmado</option>
+                  <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
+                  <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
+                  <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
+                  <option value="INTERNADO">[SisFilaSus] Internado</option>
+                  <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
+                  <option value="ALTA">[SisFilaSus] Alta</option>
+                  <option value="DESISTENCIA">[SisFilaSus] Desistência</option>
+                  <option value="OBITO">[SisFilaSus] Óbito</option>
+                  <option value="NAO_ENCONTRADO_SISREG">[SISREG] Fora do SISREG</option>
                 </select>
               </div>
 
@@ -586,9 +613,25 @@ export function FilaClient({
                 </select>
               </div>
 
-              {/* Solicitações Antigas (> 5 anos) */}
-              <div className="group flex items-center h-full pt-6">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
+              {/* Modalidade */}
+              <div className="group">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Modalidade</label>
+                <select
+                  value={modalidade}
+                  onChange={(e) => setModalidade(e.target.value)}
+                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+                >
+                  <option value="">Todas as Modalidades</option>
+                  <option value="0">Consulta</option>
+                  <option value="1">Exame</option>
+                  <option value="2">Cirurgia</option>
+                  <option value="3">Demais Procedimentos</option>
+                </select>
+              </div>
+
+              {/* Opções Extras (Checkboxes) */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 h-full pt-4 lg:pt-6">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={antigas === 'true'}
@@ -596,15 +639,12 @@ export function FilaClient({
                     className="w-4.5 h-4.5 rounded border-border/50 text-primary bg-background/50 focus:ring-primary focus:ring-2 accent-primary cursor-pointer animate-all"
                   />
                   <div className="flex flex-col">
-                    <span className="text-xs font-black text-foreground uppercase tracking-tight">Solicitações Antigas (&gt; 5 anos)</span>
-                    <span className="text-[10px] text-muted-foreground font-semibold">Filtro de limpeza operacional</span>
+                    <span className="text-[11px] font-black text-foreground uppercase tracking-tight leading-none">Solicitações Antigas</span>
+                    <span className="text-[9px] text-muted-foreground font-semibold mt-0.5">&gt; 5 anos</span>
                   </div>
                 </label>
-              </div>
 
-              {/* Omitir Fora do SISREG */}
-              <div className="group flex items-center h-full pt-6">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={omitirForaSisreg === 'true'}
@@ -612,8 +652,8 @@ export function FilaClient({
                     className="w-4.5 h-4.5 rounded border-border/50 text-primary bg-background/50 focus:ring-primary focus:ring-2 accent-primary cursor-pointer animate-all"
                   />
                   <div className="flex flex-col">
-                    <span className="text-xs font-black text-foreground uppercase tracking-tight">Omitir Fora do SISREG</span>
-                    <span className="text-[10px] text-muted-foreground font-semibold">Ocultar cadastros não encontrados no SISREG</span>
+                    <span className="text-[11px] font-black text-foreground uppercase tracking-tight leading-none">Omitir Fora SISREG</span>
+                    <span className="text-[9px] text-muted-foreground font-semibold mt-0.5">Ocultar ausentes</span>
                   </div>
                 </label>
               </div>
@@ -865,18 +905,18 @@ export function FilaClient({
                           }}
                           className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground font-semibold"
                         >
-                          <option value="NA_FILA">Na Fila</option>
-                          <option value="EM_CONVOCACAO">Em Convocação</option>
-                          <option value="CONVOCADO_CONFIRMADO">Confirmado</option>
-                          <option value="CONVOCADO_RECUSOU">Recusou</option>
-                          <option value="SEM_CONTATO">Sem Contato</option>
-                          <option value="ABSENTEISMO">Absenteísmo</option>
-                          <option value="INTERNADO">Internado</option>
-                          <option value="PROCEDIMENTO_REALIZADO">Procedimento Realizado</option>
-                          <option value="ALTA">Alta</option>
-                          <option value="DESISTENCIA">Desistência</option>
-                          <option value="OBITO">Óbito</option>
-                          <option value="NAO_ENCONTRADO_SISREG">Fora do SISREG</option>
+                          <option value="NA_FILA">[SISREG] Na Fila</option>
+                          <option value="EM_CONVOCACAO">[SisFilaSus] Em Convocação</option>
+                          <option value="CONVOCADO_CONFIRMADO">[SisFilaSus] Confirmado</option>
+                          <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
+                          <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
+                          <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
+                          <option value="INTERNADO">[SisFilaSus] Internado</option>
+                          <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
+                          <option value="ALTA">[SisFilaSus] Alta</option>
+                          <option value="DESISTENCIA">[SisFilaSus] Desistência</option>
+                          <option value="OBITO">[SisFilaSus] Óbito</option>
+                          <option value="NAO_ENCONTRADO_SISREG">[SISREG] Fora do SISREG</option>
                         </select>
                       </div>
                     </div>

@@ -29,6 +29,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado ou formato inválido' }, { status: 400 })
     }
 
+    // Verificar se o arquivo já foi importado
+    const { data: existingImport, error: checkError } = await supabase
+      .from('importacoes')
+      .select('id, created_at')
+      .eq('nome_arquivo', fileName)
+      .limit(1)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error('Erro ao verificar importações duplicadas:', checkError)
+    }
+
+    if (existingImport) {
+      const formattedDate = new Date(existingImport.created_at).toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+      return NextResponse.json({ 
+        error: `O arquivo "${fileName}" já foi importado anteriormente em ${formattedDate}.` 
+      }, { status: 400 })
+    }
+
     const stats = await parseAndImportCSV(fileContent, fileName, user.id)
 
     // Auditoria

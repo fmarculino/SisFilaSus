@@ -16,6 +16,8 @@ export default async function FilaPage({
     tipo?: string
     antigas?: string
     omitirForaSisreg?: string
+    especialidade?: string
+    modalidade?: string
     sort?: string
     order?: string
   }>
@@ -43,7 +45,7 @@ export default async function FilaPage({
   const sort = resolvedParams.sort || 'posicao_fila'
   const order = resolvedParams.order || 'asc'
 
-  // Construir query da fila com pacientes!inner para permitir filtros
+  // Construir query da fila com pacientes!inner e procedimentos!inner para permitir filtros
   let query = supabase
     .from('fila_solicitacoes')
     .select(`
@@ -59,7 +61,7 @@ export default async function FilaPage({
       nome_executante,
       estimativa_atendimento_paciente,
       pacientes!inner (id, nome_usuario, cns_usuario, cpf_usuario, data_nascimento, sexo, nome_mae, telefone_1, telefone_2, endereco, municipio_origem, observacoes),
-      procedimentos (cod_sigtap, desc_sigtap),
+      procedimentos!inner (cod_sigtap, desc_sigtap, grupo_descricao),
       municipios (codigo_ibge, nome),
       unidades_solicitantes (cnes, nome)
     `, { count: 'exact' })
@@ -68,16 +70,21 @@ export default async function FilaPage({
   // Filtros de busca
   if (resolvedParams.search) {
     const searchVal = resolvedParams.search.trim()
-    if (/^\d+$/.test(searchVal)) {
-      if (searchVal.length >= 12) {
+    const cleanDigits = searchVal.replace(/\D/g, '')
+
+    if (/^\d+$/.test(cleanDigits) && cleanDigits.length > 0) {
+      if (cleanDigits.length === 15) {
         // Provável CNS
-        query = query.eq('pacientes.cns_usuario', searchVal)
-      } else if (searchVal.length >= 8 && searchVal.length <= 11) {
-        // Provável CPF ou Solicitação menor
-        query = query.or(`cpf_usuario.eq.${searchVal},cns_usuario.eq.${searchVal}`, { foreignTable: 'pacientes' })
+        query = query.eq('pacientes.cns_usuario', cleanDigits)
+      } else if (cleanDigits.length === 11) {
+        // Provável CPF
+        query = query.eq('pacientes.cpf_usuario', cleanDigits)
+      } else if (cleanDigits.length >= 8 && cleanDigits.length <= 14) {
+        // CPF parcial ou CNS parcial
+        query = query.or(`cpf_usuario.like.%${cleanDigits}%,cns_usuario.like.%${cleanDigits}%`, { foreignTable: 'pacientes' })
       } else {
         // Código de solicitação
-        query = query.eq('cod_solicitacao', parseInt(searchVal, 10))
+        query = query.eq('cod_solicitacao', parseInt(cleanDigits, 10))
       }
     } else {
       // Nome do usuário
@@ -87,6 +94,14 @@ export default async function FilaPage({
 
   if (resolvedParams.proced) {
     query = query.eq('cod_sigtap', resolvedParams.proced)
+  }
+
+  if (resolvedParams.especialidade) {
+    query = query.eq('procedimentos.grupo_descricao', resolvedParams.especialidade)
+  }
+
+  if (resolvedParams.modalidade) {
+    query = query.eq('modalidade_fila', parseInt(resolvedParams.modalidade, 10))
   }
 
   if (resolvedParams.municipio) {
@@ -141,6 +156,16 @@ export default async function FilaPage({
   const { data: dbProcedimentos } = await supabase.from('procedimentos').select('cod_sigtap, desc_sigtap').order('desc_sigtap')
   const { data: dbMunicipios } = await supabase.from('municipios').select('codigo_ibge, nome').order('nome')
 
+  // Buscar especialidades únicas cadastradas
+  const { data: dbEspecialidades } = await supabase
+    .from('procedimentos')
+    .select('grupo_descricao')
+    .not('grupo_descricao', 'is', null)
+
+  const especialidades = Array.from(
+    new Set((dbEspecialidades || []).map(p => p.grupo_descricao?.trim()))
+  ).filter(Boolean).sort() as string[]
+
   return (
     <FilaClient
       role={role}
@@ -151,6 +176,7 @@ export default async function FilaPage({
       currentPage={page}
       procedimentos={dbProcedimentos || []}
       municipios={dbMunicipios || []}
+      especialidades={especialidades}
       appliedFilters={{
         search: resolvedParams.search || '',
         proced: resolvedParams.proced || '',
@@ -160,6 +186,8 @@ export default async function FilaPage({
         tipo: resolvedParams.tipo || '',
         antigas: resolvedParams.antigas || 'false',
         omitirForaSisreg: omitirForaSisreg ? 'true' : 'false',
+        especialidade: resolvedParams.especialidade || '',
+        modalidade: resolvedParams.modalidade || '',
       }}
     />
   )
