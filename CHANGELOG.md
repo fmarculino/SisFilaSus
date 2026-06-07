@@ -4,7 +4,21 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.2-beta] — 2026-06-07 (Atual)
+## [0.6.3-beta] — 2026-06-07 (Atual)
+### Adicionado
+* **Status `ENCAMINHADO` (Encaminhado Hospital/Clínica)**: Criado novo status para diferenciar pacientes encaminhados para prestadores mas sem data de internação definida.
+* **Fluxo de Encaminhamento Dinâmico**:
+  * Se a data de internação não for preenchida no encaminhamento, o status do paciente passa a ser `ENCAMINHADO`.
+  * Se for preenchida, passa diretamente a `INTERNADO`.
+  * Possibilidade de atualizar um paciente de `ENCAMINHADO` para `INTERNADO` preenchendo a data de internação no drawer.
+* **Badge e Seletores na UI**: Adicionado badge de cor ciano/sky para `ENCAMINHADO` e adicionado o status no seletor manual.
+
+### Documentado
+* **Fluxo de Encerramento (Baixas)**: Detalhamento no manual do operador e na arquitetura sobre como dar alta cirúrgica (`ALTA`), procedimento concluído (`PROCEDIMENTO_REALIZADO`), ou registrar óbito (`OBITO`) e desistência (`DESISTENCIA`) pelo fluxo de aprovação.
+
+---
+
+## [0.6.2-beta] — 2026-06-07
 ### Adicionado
 * **Fluxo de Encaminhamento Hospitalar**: Implementado o elo entre o módulo de Prestadores e a Fila de Espera. O operador agora pode encaminhar um paciente com status `CONVOCADO_CONFIRMADO` diretamente para um hospital prestador cadastrado, alterando automaticamente o status para `INTERNADO` e gravando data de encaminhamento e data de internação.
 * **Painel "Encaminhamento Hospitalar" no Drawer da Fila**: Nova seção visual (cor índigo) que aparece apenas para pacientes nos status `CONVOCADO_CONFIRMADO` ou `INTERNADO`, exibindo o hospital já vinculado (nome, CNES, datas) e o formulário de seleção de prestador.

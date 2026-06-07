@@ -51,13 +51,14 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
 * Painel centralizado para coordenadores revisarem e julgarem (Aprovar/Rejeitar) propostas de movimentações feitas por operadores.
 * Aplicação transacionada e automática de alterações na fila de solicitações via gatilhos (triggers) do PostgreSQL.
 
-### 🏥 Cadastro e Encaminhamento para Prestadores (Hospitais)
+### 🏥 Cadastro e Encaminhamento para Prestadores (Hospitais/Clínicas)
 * CRUD de hospitais com CNES, nome e multiseleção de especialidades médicas atendidas, persistido em array nativo do Postgres.
-* **Fluxo de Encaminhamento Hospitalar**: Na Fila de Espera, pacientes com status `CONVOCADO_CONFIRMADO` exibem um novo painel "Encaminhamento Hospitalar" no drawer lateral. O operador seleciona o hospital destino (apenas prestadores ativos são listados) e confirma o encaminhamento, que:
-  * Grava `hospital_encaminhado_id` e `data_encaminhamento` na `fila_solicitacoes`.
-  * Atualiza automaticamente o `status_interno` para `INTERNADO`.
+* **Fluxo de Encaminhamento**: Na Fila de Espera, pacientes com status `CONVOCADO_CONFIRMADO`, `ENCAMINHADO` ou `INTERNADO` exibem o painel "Encaminhamento Hospitalar" no drawer lateral. O operador seleciona o hospital/clínica destino (apenas prestadores ativos são listados) e confirma o encaminhamento:
+  * **Sem Data de Internação**: Grava o prestador e a data de encaminhamento, alterando o status para `ENCAMINHADO` (representa que foi enviado para a unidade, mas ainda aguarda comparecimento ou internação real).
+  * **Com Data de Internação**: Grava o prestador, a data de encaminhamento e a data de internação, alterando o status diretamente para `INTERNADO`.
+  * **Transição ENCAMINHADO ➜ INTERNADO**: Se o paciente já estiver `ENCAMINHADO`, o operador pode posteriormente preencher a data de internação para registrar que o paciente compareceu e foi de fato internado, o que atualiza o status para `INTERNADO`.
   * Registra a operação em `audit_log` com a ação `ENCAMINHAR_PRESTADOR`.
-* **Redirecionamento**: Pacientes já `INTERNADO` podem ter o hospital redirecionado a qualquer momento pelo painel.
+* **Redirecionamento**: Pacientes já `ENCAMINHADO` ou `INTERNADO` podem ter o hospital redirecionado a qualquer momento pelo painel.
 
 ### 📊 Relatórios Gerenciais Avançados
 Painel analítico completo para suporte à decisão da gestão municipal, estruturado em abas dinâmicas:

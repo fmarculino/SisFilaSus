@@ -372,7 +372,11 @@ export function FilaClient({
       alert('Selecione um hospital prestador.')
       return
     }
-    if (!confirm('Confirmar encaminhamento? O status será alterado para INTERNADO.')) return
+    
+    const nextStatus = dataInternaInput && dataInternaInput.trim().length > 0 ? 'INTERNADO' : 'ENCAMINHADO'
+    const statusLabel = nextStatus === 'INTERNADO' ? 'Internado' : 'Encaminhado Hospital/Clínica'
+    
+    if (!confirm(`Confirmar encaminhamento? O status será alterado para ${statusLabel}.`)) return
 
     setSavingEncaminhamento(true)
     try {
@@ -383,7 +387,7 @@ export function FilaClient({
       )
       // Atualizar estado local
       const prestadorSelecionado = extraData.prestadores.find(p => p.id === selectedPrestadorId)
-      setSelectedSol({ ...selectedSol, status_interno: 'INTERNADO' })
+      setSelectedSol({ ...selectedSol, status_interno: nextStatus })
       setExtraData(prev => ({
         ...prev,
         hospitalEncaminhado: prestadorSelecionado || null,
@@ -445,6 +449,7 @@ export function FilaClient({
       case 'CONVOCADO_RECUSOU': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20">Recusou</span>
       case 'SEM_CONTATO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">Sem Contato</span>
       case 'ABSENTEISMO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">Absenteísmo</span>
+      case 'ENCAMINHADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20">Encaminhado</span>
       case 'INTERNADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Internado</span>
       case 'PROCEDIMENTO_REALIZADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-teal-500/10 text-teal-500 border border-teal-500/20">Realizado</span>
       case 'ALTA': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-emerald-500 text-white">Alta</span>
@@ -961,6 +966,7 @@ export function FilaClient({
                           <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
                           <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
                           <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
+                          <option value="ENCAMINHADO">[SisFilaSus] Encaminhado Hospital/Clínica</option>
                           <option value="INTERNADO">[SisFilaSus] Internado</option>
                           <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
                           <option value="ALTA">[SisFilaSus] Alta</option>
@@ -974,7 +980,7 @@ export function FilaClient({
                 </div>
 
                 {/* 2. Painel de Encaminhamento para Hospital */}
-                {(selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'INTERNADO') && (
+                {(selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'ENCAMINHADO' || selectedSol.status_interno === 'INTERNADO') && (
                   <div className="bento-card p-6 border-indigo-500/20 bg-indigo-500/5 space-y-4">
                     <div className="flex items-center gap-2 text-indigo-400">
                       <Activity className="h-5 w-5" />
@@ -1003,16 +1009,18 @@ export function FilaClient({
                             )}
                           </div>
                         </div>
-                        {selectedSol.status_interno === 'INTERNADO' && (
-                          <p className="text-[10px] text-muted-foreground font-semibold">
-                            Para redirecionar, selecione um novo hospital abaixo.
+                        {(selectedSol.status_interno === 'INTERNADO' || selectedSol.status_interno === 'ENCAMINHADO') && (
+                          <p className="text-[10px] text-indigo-400/80 font-bold">
+                            {selectedSol.status_interno === 'ENCAMINHADO' 
+                              ? 'Status: Encaminhado (Aguardando internação). Para registrar a internação, informe a data abaixo.' 
+                              : 'Status: Internado.'}
                           </p>
                         )}
                       </div>
                     ) : null}
 
                     {/* Formulário de encaminhamento */}
-                    {selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'INTERNADO' ? (
+                    {selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'ENCAMINHADO' || selectedSol.status_interno === 'INTERNADO' ? (
                       <form onSubmit={handleEncaminhar} className="space-y-3">
                         <div className="space-y-1.5">
                           <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
@@ -1060,7 +1068,11 @@ export function FilaClient({
                               className="px-5 py-3 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-md shadow-indigo-500/20"
                             >
                               <ArrowUpRight className="h-3.5 w-3.5" />
-                              {savingEncaminhamento ? 'Encaminhando...' : extraData.hospitalEncaminhado ? 'Redirecionar Hospital' : 'Confirmar Encaminhamento'}
+                              {savingEncaminhamento 
+                                ? 'Processando...' 
+                                : extraData.hospitalEncaminhado 
+                                  ? (selectedSol.status_interno === 'ENCAMINHADO' && dataInternaInput ? 'Registrar Internação' : 'Redirecionar Hospital') 
+                                  : 'Confirmar Encaminhamento'}
                             </button>
                           </div>
                         )}

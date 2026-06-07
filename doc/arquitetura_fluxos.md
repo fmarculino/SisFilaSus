@@ -144,9 +144,14 @@ stateDiagram-v2
     EM_CONVOCACAO --> CONVOCADO_RECUSOU : Contato com Sucesso (Recusou/Particular)
     EM_CONVOCACAO --> SEM_CONTATO : Sem Resposta / Caixa Postal / Número Inválido
 
-    CONVOCADO_CONFIRMADO --> INTERNADO : Encaminhado para Hospital e Internado
-    INTERNADO --> PROCEDIMENTO_REALIZADO : Cirurgia Executada
-    PROCEDIMENTO_REALIZADO --> ALTA : Paciente Recebe Alta Médica
+    CONVOCADO_CONFIRMADO --> ENCAMINHADO : Encaminhado sem data de internação
+    CONVOCADO_CONFIRMADO --> INTERNADO : Encaminhado com data de internação
+    ENCAMINHADO --> INTERNADO : Paciente comparece ao prestador (Internado)
+    
+    ENCAMINHADO --> PROCEDIMENTO_REALIZADO : Consulta/Exame Executado (Clínica)
+    INTERNADO --> PROCEDIMENTO_REALIZADO : Cirurgia/Procedimento Executado
+    
+    PROCEDIMENTO_REALIZADO --> ALTA : Paciente recebe Alta Médica (Pós-cirúrgico)
 
     NA_FILA --> DESISTENCIA : Proposta de Desistência Aprovada
     NA_FILA --> OBITO : Proposta de Óbito Aprovada
@@ -158,12 +163,13 @@ stateDiagram-v2
 ### 📋 Detalhamento dos Status:
 * **`NA_FILA`**: O paciente está aguardando passivamente na fila oficial do SISREG.
 * **`EM_CONVOCACAO`**: O operador iniciou o processo de convocação ativa (chama no WhatsApp).
-* **`CONVOCADO_CONFIRMADO`**: Paciente contactado. Confirmou que deseja o procedimento e aguarda agendamento/internação.
+* **`CONVOCADO_CONFIRMADO`**: Paciente contactado. Confirmou que deseja o procedimento e aguarda encaminhamento.
 * **`CONVOCADO_RECUSOU`**: Paciente contactado. Informou que já realizou de forma particular, por plano de saúde ou desistiu do procedimento.
 * **`SEM_CONTATO`**: Tentativas falhas de contato (não atende, caixa postal ou número inexistente).
-* **`INTERNADO`**: Paciente internado em hospital prestador aguardando a cirurgia.
-* **`PROCEDIMENTO_REALIZADO`**: Cirurgia ou exame concluído.
-* **`ALTA`**: Paciente recuperado e liberado.
+* **`ENCAMINHADO`**: Paciente encaminhado para hospital/clínica (aguardando comparecimento ou internação real).
+* **`INTERNADO`**: Paciente internado em hospital prestador aguardando a cirurgia (data de internação informada).
+* **`PROCEDIMENTO_REALIZADO`**: Cirurgia, exame ou consulta concluído.
+* **`ALTA`**: Paciente recuperado e liberado (após internação).
 * **`DESISTENCIA` / `OBITO` / `TRANSFERENCIA`**: Status terminais aplicados via workflow de movimentação.
 * **`NAO_ENCONTRADO_SISREG` (Fora do SISREG)**: Solicitação ausente na exportação do SISREG (provavelmente concluída na Central do Estado ou cancelada).
 

@@ -56,33 +56,34 @@ Toda tentativa de contato **deve** ser registrada no sistema para compor o hist�
 
 ---
 
-## 🏥 5. Encaminhamento para Hospital Prestador
-Quando um paciente com status **Confirmado** (`CONVOCADO_CONFIRMADO`) está pronto para ser internado em um hospital da rede, o operador realiza o encaminhamento diretamente no Drawer de Detalhes.
+## 🏥 5. Encaminhamento para Hospital/Clínica Prestador
+Quando um paciente com status **Confirmado** (`CONVOCADO_CONFIRMADO`) está pronto para ser encaminhado a um prestador da rede, o operador realiza o encaminhamento no Drawer de Detalhes.
 
 ### 📋 Como Encaminhar:
 1. Abra o **Drawer de Detalhes** clicando no ícone de olho do paciente na Fila de Espera.
-2. Role até o card **"Encaminhamento Hospitalar"** (cor índigo). Ele só aparece se o status for `CONVOCADO_CONFIRMADO` ou `INTERNADO`.
-3. No dropdown **"Selecionar Hospital Destino"**, escolha o hospital prestador. A lista exibe apenas hospitais **ativos** cadastrados em *Cadastros → Prestadores*.
-4. Preencha a **Data de Internação** (opcional) se já houver data definida.
-5. Clique em **"Confirmar Encaminhamento"** e confirme na caixa de diálogo.
-6. O sistema automaticamente:
-   * Grava o hospital vinculado e a data de encaminhamento.
-   * Atualiza o status do paciente para **Internado**.
-   * Registra a ação no log de auditoria.
+2. Role até o card **"Encaminhamento Hospitalar"** (cor índigo). Ele aparece se o status for `CONVOCADO_CONFIRMADO`, `ENCAMINHADO` ou `INTERNADO`.
+3. No dropdown **"Selecionar Hospital Destino"**, escolha o prestador.
+4. Preencha a **Data de Internação** (opcional):
+   * **Se NÃO for preenchida**: O status do paciente passará a ser **Encaminhado** (`ENCAMINHADO`). Isso serve para indicar que o paciente foi enviado para o hospital/clínica, mas ainda aguarda comparecimento ou internação de fato.
+   * **Se FOR preenchida**: O status do paciente passará a ser **Internado** (`INTERNADO`).
+5. Clique em **"Confirmar Encaminhamento"** (ou **"Registrar Internação"** se o paciente já estava encaminhado).
 
 > [!TIP]
-> Se a lista de prestadores aparecer vazia, peça ao Coordenador ou Administrador que cadastre os hospitais da rede em **Cadastros → Prestadores (Hospitais)**.
-
-### 🔄 Redirecionar para Outro Hospital:
-Caso o paciente já esteja com status `INTERNADO` e precise ser transferido para outro hospital, o mesmo painel exibirá o hospital atual e permitirá selecionar um novo. O botão passará a exibir **"Redirecionar Hospital"**.
+> Se o paciente foi encaminhado sem data de internação (status **Encaminhado**), o operador pode, a qualquer momento, abrir o drawer dele, preencher a "Data de Internação" e clicar em **"Registrar Internação"** para atualizar o status do paciente para **Internado** de forma automática.
 
 ---
 
-## ⚙️ 6. Alteração Manual de Status
-Caso você receba informações externas (ex: a Assistência Social informou óbito, ou a Unidade notificou que o paciente já realizou a cirurgia no hospital estadual):
-1. No Drawer de Detalhes, localize o campo **"Alterar Status Interno (Manual)"** (embaixo dos telefones).
-2. Selecione o status correto (ex: `PROCEDIMENTO_REALIZADO`, `INTERNADO`, `DESISTENCIA`, `OBITO`).
-3. Confirme a alteração. O sistema registra a alteração instantaneamente de forma auditada.
+## ⚙️ 6. Altas, Baixas e Registro de Óbito (Fluxo de Encerramento)
+Após o paciente ser atendido ou internado, o fluxo de encerramento ou baixa é feito de acordo com a situação:
+
+### A. Alta Cirúrgica (`ALTA`) ou Procedimento Realizado (`PROCEDIMENTO_REALIZADO`)
+* **Uso**: Para dar alta pós-cirúrgica ou registrar que a clínica parceira realizou a consulta/exame.
+* **Como fazer**: No Drawer de Detalhes, localize o campo **"Alterar Status Interno (Manual)"** (abaixo dos telefones). Selecione o status correto (**"Alta"** ou **"Procedimento Realizado"**) e confirme. A solicitação sairá dos filtros ativos e registrará a baixa na auditoria.
+
+### B. Óbito (`OBITO`) ou Desistência (`DESISTENCIA`)
+* **Uso**: Quando o paciente desiste do procedimento ou falece antes/durante a regulação.
+* **Como fazer**: Por questões de auditoria e segurança, os status terminais não podem ser aplicados diretamente. O operador deve ir ao final do drawer na seção **"Propor Alteração / Movimentação"**, selecionar o tipo (**"Óbito"** ou **"Desistência"**), justificar detalhadamente e clicar em **"Propor Movimentação"**.
+* **Aprovação**: O Coordenador ou Administrador revisará a proposta no painel de **Movimentações** (`/dashboard/movimentacoes`). Ao aprovar, o status é alterado de forma transacionada no banco de dados.
 
 ---
 

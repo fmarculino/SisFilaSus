@@ -269,15 +269,20 @@ export async function encaminharParaPrestador(
     .eq('cod_solicitacao', codSolicitacao)
     .single()
 
+  // Determinar novo status com base na presença da data de internação
+  const novoStatus = dataInternacao && dataInternacao.trim().length > 0 ? 'INTERNADO' : 'ENCAMINHADO'
+
   const updatePayload: Record<string, unknown> = {
     hospital_encaminhado_id: prestadorId,
     data_encaminhamento: new Date().toISOString().split('T')[0],
-    status_interno: 'INTERNADO',
+    status_interno: novoStatus,
     updated_at: new Date().toISOString(),
   }
 
-  if (dataInternacao) {
+  if (dataInternacao && dataInternacao.trim().length > 0) {
     updatePayload.data_internacao = dataInternacao
+  } else {
+    updatePayload.data_internacao = null
   }
 
   const { error } = await supabase
