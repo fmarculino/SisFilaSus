@@ -40,6 +40,7 @@ export default function PortalCidadaoPage() {
       case 'CONVOCADO_RECUSOU': return 'Recusou Atendimento'
       case 'SEM_CONTATO': return 'Sem Contato (Nova Tentativa)'
       case 'ABSENTEISMO': return 'Faltou ao Agendamento'
+      case 'ENCAMINHADO': return 'Encaminhado ao Hospital/Clínica'
       case 'INTERNADO': return 'Internado'
       case 'PROCEDIMENTO_REALIZADO': return 'Procedimento Realizado'
       case 'ALTA': return 'Alta da Regulação'
@@ -57,6 +58,13 @@ export default function PortalCidadaoPage() {
       case 'CONVOCADO_CONFIRMADO': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
       case 'CONVOCADO_RECUSOU': return 'bg-rose-500/10 text-rose-500 border-rose-500/20'
       case 'SEM_CONTATO': return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+      case 'ENCAMINHADO': return 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+      case 'INTERNADO': return 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
+      case 'PROCEDIMENTO_REALIZADO': return 'bg-teal-500/10 text-teal-500 border-teal-500/20'
+      case 'ALTA': return 'bg-emerald-500 text-white'
+      case 'DESISTENCIA': return 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+      case 'OBITO': return 'bg-black text-white'
+      case 'NAO_ENCONTRADO_SISREG': return 'bg-amber-500 text-white border-amber-600'
       default: return 'bg-muted text-muted-foreground'
     }
   }

@@ -139,6 +139,7 @@ export function RelatoriosClient({
       case 'CONVOCADO_RECUSOU': return { label: 'Recusou', color: 'bg-rose-500/10 text-rose-500 border-rose-500/20' }
       case 'SEM_CONTATO': return { label: 'Sem Contato', color: 'bg-amber-500/10 text-amber-500 border-amber-500/20' }
       case 'ABSENTEISMO': return { label: 'Absenteísmo', color: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20' }
+      case 'ENCAMINHADO': return { label: 'Encaminhado', color: 'bg-sky-500/10 text-sky-500 border-sky-500/20' }
       case 'INTERNADO': return { label: 'Internado', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' }
       case 'PROCEDIMENTO_REALIZADO': return { label: 'Realizado', color: 'bg-teal-500/10 text-teal-500 border-teal-500/20' }
       case 'ALTA': return { label: 'Alta', color: 'bg-emerald-500 text-white' }

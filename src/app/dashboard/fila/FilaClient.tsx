@@ -643,6 +643,7 @@ export function FilaClient({
                   <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
                   <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
                   <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
+                  <option value="ENCAMINHADO">[SisFilaSus] Encaminhado Hospital/Clínica</option>
                   <option value="INTERNADO">[SisFilaSus] Internado</option>
                   <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
                   <option value="ALTA">[SisFilaSus] Alta</option>
