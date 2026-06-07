@@ -427,13 +427,13 @@ export async function parseAndImportCSV(
     }
   }
 
-  // 10. Identificar divergências críticas de status (Óbitos, Desistências, Recusas e Internados ativos no SISREG)
+  // 10. Identificar divergências críticas de status (Óbitos, Desistências, Recusas, Encaminhados e Internados ativos no SISREG)
   try {
     const { data: divergentes } = await supabase
       .from('fila_solicitacoes')
       .select('cod_solicitacao, status_interno, status_sisreg')
       .eq('ultima_importacao_id', importLote.id)
-      .in('status_interno', ['OBITO', 'DESISTENCIA', 'CONVOCADO_RECUSOU', 'INTERNADO'])
+      .in('status_interno', ['OBITO', 'DESISTENCIA', 'CONVOCADO_RECUSOU', 'INTERNADO', 'ENCAMINHADO'])
       .not('posicao_fila', 'is', null)
 
     if (divergentes && divergentes.length > 0) {
@@ -443,7 +443,7 @@ export async function parseAndImportCSV(
           tipo = 'OBITO_ATIVO'
         } else if (d.status_interno === 'CONVOCADO_RECUSOU') {
           tipo = 'RECUSA_ATIVA'
-        } else if (d.status_interno === 'INTERNADO') {
+        } else if (d.status_interno === 'INTERNADO' || d.status_interno === 'ENCAMINHADO') {
           tipo = 'INTERNADO_ATIVO'
         }
         return {

@@ -122,6 +122,7 @@ export function SincronizacaoClient({
       case 'DESISTENCIA': return <span className="px-2 py-0.5 rounded bg-gray-500 text-white font-bold text-[9px] uppercase">Desistência</span>
       case 'CONVOCADO_RECUSOU': return <span className="px-2 py-0.5 rounded bg-zinc-500 text-white font-bold text-[9px] uppercase">Recusou</span>
       case 'INTERNADO': return <span className="px-2 py-0.5 rounded bg-indigo-500 text-white font-bold text-[9px] uppercase">Internado</span>
+      case 'ENCAMINHADO': return <span className="px-2 py-0.5 rounded bg-sky-500 text-white font-bold text-[9px] uppercase">Encaminhado</span>
       default: return <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[9px] uppercase">{status}</span>
     }
   }
