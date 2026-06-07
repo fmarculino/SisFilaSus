@@ -45,6 +45,27 @@ export default async function FilaPage({
   const sort = resolvedParams.sort || 'posicao_fila'
   const order = resolvedParams.order || 'asc'
 
+  // Buscar configurações gerais do banco de dados
+  const { data: configRow } = await supabase
+    .from('configuracoes')
+    .select('valor')
+    .eq('chave', 'geral')
+    .maybeSingle()
+
+  const defaultConfig = {
+    limite_tentativas_contato: 3,
+    anos_limpeza_fila: 5,
+    municipio_sede: 'MARABÁ',
+    omitir_fora_sisreg_padrao: true
+  }
+
+  const config = configRow?.valor 
+    ? { ...defaultConfig, ...(configRow.valor as any) }
+    : defaultConfig
+
+  const omitirForaSisregDefault = config.omitir_fora_sisreg_padrao
+  const anosLimpezaFila = config.anos_limpeza_fila
+
   // Construir query da fila com pacientes!inner e procedimentos!inner para permitir filtros
   let query = supabase
     .from('fila_solicitacoes')
@@ -121,13 +142,16 @@ export default async function FilaPage({
   }
 
   if (resolvedParams.antigas === 'true') {
-    const fiveYearsAgo = new Date()
-    fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5)
-    query = query.lte('data_solicitacao', fiveYearsAgo.toISOString())
+    const yearsAgo = new Date()
+    yearsAgo.setFullYear(yearsAgo.getFullYear() - anosLimpezaFila)
+    query = query.lte('data_solicitacao', yearsAgo.toISOString())
   }
 
-  // Omitir Fora do SISREG por padrão
-  const omitirForaSisreg = resolvedParams.omitirForaSisreg !== 'false'
+  // Omitir Fora do SISREG
+  const omitirForaSisreg = resolvedParams.omitirForaSisreg !== undefined
+    ? resolvedParams.omitirForaSisreg === 'true'
+    : omitirForaSisregDefault
+
   if (omitirForaSisreg && resolvedParams.status !== 'NAO_ENCONTRADO_SISREG') {
     query = query.neq('status_interno', 'NAO_ENCONTRADO_SISREG')
   }
@@ -177,6 +201,8 @@ export default async function FilaPage({
       procedimentos={dbProcedimentos || []}
       municipios={dbMunicipios || []}
       especialidades={especialidades}
+      omitirForaSisregDefault={omitirForaSisregDefault}
+      anosLimpezaFila={anosLimpezaFila}
       appliedFilters={{
         search: resolvedParams.search || '',
         proced: resolvedParams.proced || '',

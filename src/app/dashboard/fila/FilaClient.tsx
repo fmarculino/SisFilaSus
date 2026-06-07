@@ -39,6 +39,8 @@ interface FilaClientProps {
   procedimentos: any[]
   municipios: any[]
   especialidades: string[]
+  omitirForaSisregDefault?: boolean
+  anosLimpezaFila?: number
   appliedFilters: {
     search: string
     proced: string
@@ -63,6 +65,8 @@ export function FilaClient({
   procedimentos,
   municipios,
   especialidades,
+  omitirForaSisregDefault = true,
+  anosLimpezaFila = 5,
   appliedFilters,
 }: FilaClientProps) {
   const router = useRouter()
@@ -217,7 +221,7 @@ export function FilaClient({
     setStatus('')
     setTipo('')
     setAntigas('false')
-    setOmitirForaSisreg('true')
+    setOmitirForaSisreg(omitirForaSisregDefault ? 'true' : 'false')
     router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
   }
 
@@ -686,7 +690,7 @@ export function FilaClient({
                   />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-black text-foreground uppercase tracking-tight leading-none">Solicitações Antigas</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold mt-0.5">&gt; 5 anos</span>
+                    <span className="text-[9px] text-muted-foreground font-semibold mt-0.5">&gt; {anosLimpezaFila} anos</span>
                   </div>
                 </label>
 

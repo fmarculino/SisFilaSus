@@ -12,6 +12,11 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 * **Auditoria de Encaminhamento**: Cada encaminhamento gera um registro imutável em `audit_log` com a ação `ENCAMINHAR_PRESTADOR`, contendo os dados anteriores e novos.
 * **Server Action `encaminharParaPrestador`**: Nova action em `fila/actions.ts` que grava `hospital_encaminhado_id`, `data_encaminhamento`, `data_internacao` e `status_interno = 'INTERNADO'` na tabela `fila_solicitacoes`.
 
+### Corrigido
+* **Gatilho de Preservação de Status (`trigger_preserve_status_interno`)**: Corrigido bug em que a restrição de status bloqueava as transições manuais ou automáticas feitas por operadores (como de `EM_CONVOCACAO` para `CONVOCADO_CONFIRMADO`), impedindo o encaminhamento hospitalar. O gatilho agora só é aplicado se `auth.uid() IS NULL` (durante importações).
+* **Parâmetro "Omitir Fora do SISREG por Padrão"**: O filtro "Omitir Fora SISREG" da fila de espera agora consome e respeita a configuração global salva no banco de dados na carga inicial e ao limpar os filtros.
+* **Tempo Limite para Limpeza de Fila**: A query da fila de espera agora consome dinamicamente o número de anos definido nas configurações gerais ao invés de manter o valor de 5 anos hardcoded.
+
 ---
 
 ## [0.6.1-beta] — 2026-06-06
