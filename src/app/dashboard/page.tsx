@@ -36,7 +36,10 @@ export default async function DashboardPage() {
     supabase.from('vw_dashboard_kpis').select('*').single(),
     supabase.from('vw_dashboard_top_procedimentos').select('*'),
     supabase.from('vw_dashboard_risco').select('*'),
-    supabase.from('vw_dashboard_evolucao').select('*')
+    supabase.from('importacoes')
+      .select('id, nome_arquivo, data_exportacao_sisreg, created_at, total_registros')
+      .order('created_at', { ascending: false })
+      .limit(10)
   ])
 
   const kpis = kpisRes.data || { 
@@ -50,7 +53,12 @@ export default async function DashboardPage() {
   }
   const topProcedimentos = topProcedsRes.data || []
   const riscoData = riscoRes.data || []
-  const evolucaoData = evolucaoRes.data || []
+  const evolucaoData = (evolucaoRes.data || []).map((item: any) => ({
+    importacao_id: item.id,
+    nome_arquivo: item.nome_arquivo,
+    data_importacao: item.data_exportacao_sisreg || item.created_at,
+    total_registros: item.total_registros
+  }))
 
   // Mapeamento de rótulos de risco
   const getRiskLabel = (risco: number) => {
