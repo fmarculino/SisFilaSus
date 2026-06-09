@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
+import { Portal } from '@/components/ui/Portal'
 import { 
   Search, Filter, Eye, Phone, MessageSquare, Plus, X, 
   Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
@@ -167,7 +168,7 @@ export function FilaClient({
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
     if (antigas === 'true') params.set('antigas', 'true')
-    if (omitirForaSisreg === 'false') params.set('omitirForaSisreg', 'false')
+    params.set('omitirForaSisreg', omitirForaSisreg)
     
     const sortVal = searchParams.get('sort')
     const orderVal = searchParams.get('order')
@@ -193,7 +194,7 @@ export function FilaClient({
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
     if (antigas === 'true') params.set('antigas', 'true')
-    if (omitirForaSisreg === 'false') params.set('omitirForaSisreg', 'false')
+    params.set('omitirForaSisreg', omitirForaSisreg)
 
     const currentSort = searchParams.get('sort')
     const currentOrder = searchParams.get('order')
@@ -836,7 +837,8 @@ export function FilaClient({
 
       {/* Drawer Lateral (Detalhamento do Paciente e Convocação) */}
       {drawerOpen && selectedSol && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-hidden">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
@@ -1327,6 +1329,7 @@ export function FilaClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </DashboardShell>
   )

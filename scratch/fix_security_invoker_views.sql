@@ -67,7 +67,7 @@ SELECT
   COALESCE(data_exportacao_sisreg, created_at) as data_importacao,
   total_registros
 FROM public.importacoes
-ORDER BY COALESCE(data_exportacao_sisreg, created_at) ASC
+ORDER BY COALESCE(data_exportacao_sisreg, created_at) DESC
 LIMIT 10;
 
 GRANT SELECT ON public.vw_dashboard_evolucao TO authenticated;
