@@ -4,7 +4,23 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.3-beta] — 2026-06-07 (Atual)
+## [0.6.4-beta] — 2026-06-08 (Atual)
+### Adicionado
+* **Componente Portal (`Portal.tsx`)**: Criado componente para renderização de gavetas e modais no `document.body`, resolvendo problemas de posicionamento relativos a elementos com transformações CSS (como o scroll e animações do layout).
+
+### Alterado
+* **Painel de Sincronização (Divergências SISREG)**:
+  * Dividida a categoria de pacientes com divergência ativa no SISREG entre **Encaminhados Ativos** (status local `ENCAMINHADO`) e **Internados Ativos** (status local `INTERNADO`).
+  * Adicionado novo card de indicador para **Encaminhados Ativos** (cor `sky`/azul claro com ícone `ArrowUpRight`) na grid, expandindo-a para 5 colunas.
+  * Atualizados os badges da tabela de divergências e o filtro de busca no dropdown para suportar as duas categorias de forma independente.
+* **Gavetas de Todo o Sistema (Portais)**: Atualizada a renderização de modais/drawers nas telas de **Fila de Espera**, **Cadastro de Pacientes**, **Prestadores**, **Mensagens**, **Usuários** e **Auditoria** usando o componente `Portal`, garantindo que abram fixos e visíveis na área de foco do operador, independente do scroll.
+
+### Corrigido
+* **Filtro "Omitir Fora do SISREG"**: Corrigido bug em que o flag ativado manualmente na tela da fila de espera era ignorado se a opção estivesse definida como "Não" nas configurações gerais. O parâmetro `omitirForaSisreg` agora é propagado de forma explícita na URL (`true` ou `false`).
+
+---
+
+## [0.6.3-beta] — 2026-06-07
 ### Adicionado
 * **Status `ENCAMINHADO` (Encaminhado Hospital/Clínica)**: Criado novo status para diferenciar pacientes encaminhados para prestadores mas sem data de internação definida.
 * **Fluxo de Encaminhamento Dinâmico**:
