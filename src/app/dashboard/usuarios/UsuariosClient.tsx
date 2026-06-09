@@ -6,6 +6,7 @@ import {
   Plus, Edit2, X, User, Check, Key, UserCheck, UserX,
   ShieldCheck, ShieldAlert, UserCog
 } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 import { createUserAction, updateUserAction } from './actions'
 
 interface UserProfile {
@@ -366,7 +367,8 @@ export function UsuariosClient({
 
       {/* Drawer Lateral para Cadastro / Edição */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-hidden">
           <div 
             className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setModalOpen(false)}
@@ -523,6 +525,7 @@ export function UsuariosClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </DashboardShell>
   )

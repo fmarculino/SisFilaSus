@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
+import { Portal } from '@/components/ui/Portal'
 import { 
   Search, Filter, Eye, X, Calendar, User, 
   Database, Activity, ArrowRight, ShieldCheck, ShieldAlert
@@ -372,7 +373,8 @@ export function AuditoriaClient({
 
       {/* Modal Lateral (Details Drawer) */}
       {modalOpen && selectedLog && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-hidden">
           <div 
             className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setModalOpen(false)}
@@ -426,6 +428,7 @@ export function AuditoriaClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </DashboardShell>
   )

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
+import { Portal } from '@/components/ui/Portal'
 import { 
   Plus, Edit2, Trash2, X, User, Search, Filter, 
   Phone, Calendar, AlertCircle, FileText
@@ -387,7 +388,8 @@ export function PacientesClient({
 
       {/* Drawer Lateral - Formulário CRUD */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-hidden">
           <div 
             className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setModalOpen(false)}
@@ -594,6 +596,7 @@ export function PacientesClient({
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </DashboardShell>
   )

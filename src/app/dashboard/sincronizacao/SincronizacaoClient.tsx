@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { 
   Check, AlertTriangle, Search, Activity, User, FileText, 
-  HelpCircle, RefreshCw
+  HelpCircle, RefreshCw, ArrowUpRight
 } from 'lucide-react'
 import { resolveDivergenciaAction } from './actions'
 
@@ -70,18 +70,30 @@ export function SincronizacaoClient({
   const totalObitos = divergencias.filter(d => d.tipo_divergencia === 'OBITO_ATIVO').length
   const totalDesistencias = divergencias.filter(d => d.tipo_divergencia === 'DESISTENCIA_ATIVA').length
   const totalRecusas = divergencias.filter(d => d.tipo_divergencia === 'RECUSA_ATIVA').length
-  const totalInternados = divergencias.filter(d => d.tipo_divergencia === 'INTERNADO_ATIVO').length
+  const totalEncaminhados = divergencias.filter(d => d.tipo_divergencia === 'INTERNADO_ATIVO' && d.status_interno_local === 'ENCAMINHADO').length
+  const totalInternados = divergencias.filter(d => d.tipo_divergencia === 'INTERNADO_ATIVO' && d.status_interno_local === 'INTERNADO').length
 
   // Filtragem
   const filtered = divergencias.filter(d => {
     const nome = d.solicitacao.pacientes.nome_usuario.toLowerCase()
     const cod = d.solicitacao.cod_solicitacao.toString()
     const matchesSearch = nome.includes(search.toLowerCase()) || cod.includes(search)
-    const matchesTipo = filterTipo === '' || d.tipo_divergencia === filterTipo
+    
+    let matchesTipo = false
+    if (filterTipo === '') {
+      matchesTipo = true
+    } else if (filterTipo === 'ENCAMINHADO_ATIVO') {
+      matchesTipo = d.tipo_divergencia === 'INTERNADO_ATIVO' && d.status_interno_local === 'ENCAMINHADO'
+    } else if (filterTipo === 'INTERNADO_ATIVO') {
+      matchesTipo = d.tipo_divergencia === 'INTERNADO_ATIVO' && d.status_interno_local === 'INTERNADO'
+    } else {
+      matchesTipo = d.tipo_divergencia === filterTipo
+    }
+    
     return matchesSearch && matchesTipo
   })
 
-  const getDivergenciaBadge = (tipo: string) => {
+  const getDivergenciaBadge = (tipo: string, statusLocal?: string) => {
     switch (tipo) {
       case 'OBITO_ATIVO':
         return (
@@ -105,9 +117,17 @@ export function SincronizacaoClient({
           </div>
         )
       case 'INTERNADO_ATIVO':
+        if (statusLocal === 'ENCAMINHADO') {
+          return (
+            <div className="flex flex-col gap-1">
+              <span className="px-2.5 py-1 text-[9px] font-black uppercase rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 w-fit">Encaminhado Ativo no SISREG</span>
+              <span className="text-[10px] text-muted-foreground/80 font-bold">Paciente encaminhado localmente, mas ativo na fila de espera.</span>
+            </div>
+          )
+        }
         return (
           <div className="flex flex-col gap-1">
-            <span className="px-2.5 py-1 text-[9px] font-black uppercase rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20 w-fit">Internado Ativo no SISREG</span>
+            <span className="px-2.5 py-1 text-[9px] font-black uppercase rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 w-fit">Internado Ativo no SISREG</span>
             <span className="text-[10px] text-muted-foreground/80 font-bold">Paciente internado localmente, mas ativo na fila de espera.</span>
           </div>
         )
@@ -142,7 +162,7 @@ export function SincronizacaoClient({
         </div>
 
         {/* Bento Cards de Indicadores */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           
           <div className="bento-card p-5 border-l-4 border-rose-500 flex items-center justify-between">
             <div>
@@ -174,12 +194,22 @@ export function SincronizacaoClient({
             </div>
           </div>
 
-          <div className="bento-card p-5 border-l-4 border-blue-500 flex items-center justify-between">
+          <div className="bento-card p-5 border-l-4 border-sky-500 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Encaminhados Ativos</span>
+              <p className="text-2xl font-black text-foreground mt-1">{totalEncaminhados}</p>
+            </div>
+            <div className="h-10 w-10 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
+              <ArrowUpRight className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="bento-card p-5 border-l-4 border-indigo-500 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Internados Ativos</span>
               <p className="text-2xl font-black text-foreground mt-1">{totalInternados}</p>
             </div>
-            <div className="h-10 w-10 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
               <Activity className="h-5 w-5" />
             </div>
           </div>
@@ -208,12 +238,13 @@ export function SincronizacaoClient({
               <select
                 value={filterTipo}
                 onChange={(e) => setFilterTipo(e.target.value)}
-                className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+                className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-semibold"
               >
                 <option value="">Todas as Divergências</option>
                 <option value="OBITO_ATIVO">Óbitos Ativos</option>
                 <option value="DESISTENCIA_ATIVA">Desistências Ativas</option>
                 <option value="RECUSA_ATIVA">Recusas Ativas</option>
+                <option value="ENCAMINHADO_ATIVO">Encaminhados Ativos</option>
                 <option value="INTERNADO_ATIVO">Internados Ativos</option>
               </select>
             </div>
@@ -260,7 +291,7 @@ export function SincronizacaoClient({
                           <span className="text-[9px] text-muted-foreground/60 font-mono">SIGTAP: {d.solicitacao.procedimentos.cod_sigtap}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-6">{getDivergenciaBadge(d.tipo_divergencia)}</td>
+                      <td className="py-4 px-6">{getDivergenciaBadge(d.tipo_divergencia, d.status_interno_local)}</td>
                       <td className="py-4 px-6">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">

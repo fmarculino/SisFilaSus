@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Plus, Edit2, Trash2, X, FileText, Sparkles, MessageSquare, AlertCircle, RefreshCw } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 import { saveTemplateAction, deleteTemplateAction, seedDefaultTemplatesAction } from './actions'
 
 interface Template {
@@ -269,7 +270,8 @@ export function MensagemClient({ role, email, templates: initialTemplates }: Men
 
       {/* Drawer Lateral - Formulário de Criação/Edição */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-hidden">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
@@ -392,6 +394,7 @@ export function MensagemClient({ role, email, templates: initialTemplates }: Men
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </DashboardShell>
   )
