@@ -4,7 +4,16 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.4-beta] — 2026-06-08 (Atual)
+## [0.6.5-beta] — 2026-06-10 (Atual)
+### Adicionado
+* **Filtro por Unidade Solicitante**:
+  * Adicionado suporte para filtrar a Fila de Espera (`/dashboard/fila`) pela unidade solicitante (UBS, Hospitais, Postinhos).
+  * Exibido novo dropdown dinâmico "Unidade Solicitante" no painel de filtros, alimentado pela tabela `unidades_solicitantes`.
+  * Filtro integrado à query do Supabase usando `cnes_solicitante`.
+
+---
+
+## [0.6.4-beta] — 2026-06-08
 ### Adicionado
 * **Componente Portal (`Portal.tsx`)**: Criado componente para renderização de gavetas e modais no `document.body`, resolvendo problemas de posicionamento relativos a elementos com transformações CSS (como o scroll e animações do layout).
 

@@ -39,6 +39,7 @@ interface FilaClientProps {
   currentPage: number
   procedimentos: any[]
   municipios: any[]
+  unidades: any[]
   especialidades: string[]
   omitirForaSisregDefault?: boolean
   anosLimpezaFila?: number
@@ -46,6 +47,7 @@ interface FilaClientProps {
     search: string
     proced: string
     municipio: string
+    unidade: string
     risco: string
     status: string
     tipo: string
@@ -65,6 +67,7 @@ export function FilaClient({
   currentPage,
   procedimentos,
   municipios,
+  unidades,
   especialidades,
   omitirForaSisregDefault = true,
   anosLimpezaFila = 5,
@@ -78,6 +81,7 @@ export function FilaClient({
   const [search, setSearch] = useState(appliedFilters.search)
   const [proced, setProced] = useState(appliedFilters.proced)
   const [municipio, setMunicipio] = useState(appliedFilters.municipio)
+  const [unidade, setUnidade] = useState(appliedFilters.unidade || '')
   const [risco, setRisco] = useState(appliedFilters.risco)
   const [status, setStatus] = useState(appliedFilters.status)
   const [tipo, setTipo] = useState(appliedFilters.tipo)
@@ -164,6 +168,7 @@ export function FilaClient({
     if (especialidade) params.set('especialidade', especialidade)
     if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
+    if (unidade) params.set('unidade', unidade)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
@@ -190,6 +195,7 @@ export function FilaClient({
     if (especialidade) params.set('especialidade', especialidade)
     if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
+    if (unidade) params.set('unidade', unidade)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
@@ -218,6 +224,7 @@ export function FilaClient({
     setEspecialidade('')
     setModalidade('')
     setMunicipio('')
+    setUnidade('')
     setRisco('')
     setStatus('')
     setTipo('')
@@ -593,6 +600,21 @@ export function FilaClient({
                   <option value="">Todos os Municípios</option>
                   {municipios.map(m => (
                     <option key={m.codigo_ibge} value={m.codigo_ibge}>{m.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Unidade Solicitante */}
+              <div className="group">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Unidade Solicitante</label>
+                <select
+                  value={unidade}
+                  onChange={(e) => setUnidade(e.target.value)}
+                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
+                >
+                  <option value="">Todas as Unidades</option>
+                  {unidades.map(u => (
+                    <option key={u.cnes} value={u.cnes}>{u.nome}</option>
                   ))}
                 </select>
               </div>

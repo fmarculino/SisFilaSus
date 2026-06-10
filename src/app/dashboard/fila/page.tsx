@@ -20,6 +20,7 @@ export default async function FilaPage({
     modalidade?: string
     sort?: string
     order?: string
+    unidade?: string
   }>
 }) {
   const supabase = await createClient()
@@ -132,6 +133,10 @@ export default async function FilaPage({
     query = query.eq('municipio_origem_ibge', resolvedParams.municipio)
   }
 
+  if (resolvedParams.unidade) {
+    query = query.eq('cnes_solicitante', resolvedParams.unidade)
+  }
+
   if (resolvedParams.risco) {
     query = query.eq('classificacao_risco', parseInt(resolvedParams.risco, 10))
   }
@@ -182,6 +187,7 @@ export default async function FilaPage({
   // Buscar opções de filtros dinamicamente
   const { data: dbProcedimentos } = await supabase.from('procedimentos').select('cod_sigtap, desc_sigtap').order('desc_sigtap')
   const { data: dbMunicipios } = await supabase.from('municipios').select('codigo_ibge, nome').order('nome')
+  const { data: dbUnidades } = await supabase.from('unidades_solicitantes').select('cnes, nome').order('nome')
 
   // Buscar especialidades únicas cadastradas
   const { data: dbEspecialidades } = await supabase
@@ -203,6 +209,7 @@ export default async function FilaPage({
       currentPage={page}
       procedimentos={dbProcedimentos || []}
       municipios={dbMunicipios || []}
+      unidades={dbUnidades || []}
       especialidades={especialidades}
       omitirForaSisregDefault={omitirForaSisregDefault}
       anosLimpezaFila={anosLimpezaFila}
@@ -210,6 +217,7 @@ export default async function FilaPage({
         search: resolvedParams.search || '',
         proced: resolvedParams.proced || '',
         municipio: resolvedParams.municipio || '',
+        unidade: resolvedParams.unidade || '',
         risco: resolvedParams.risco || '',
         status: resolvedParams.status || '',
         tipo: resolvedParams.tipo || '',
