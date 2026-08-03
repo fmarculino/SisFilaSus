@@ -23,6 +23,8 @@ export const viewport = {
   themeColor: "#0f766e", // Teal primary color matching viewport theme
 }
 
+import { SystemModalProvider } from "@/components/ui/SystemModal"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,7 +41,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <SystemModalProvider>
+            {children}
+          </SystemModalProvider>
         </ThemeProvider>
 
         {/* Registro Automático do Service Worker para suporte a PWA */}

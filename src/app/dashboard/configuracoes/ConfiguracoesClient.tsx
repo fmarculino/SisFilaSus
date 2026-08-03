@@ -27,6 +27,7 @@ import {
   testWhatsAppAction
 } from './actions'
 import { CommunicationConfig } from '@/lib/communication'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface ConfigValue {
   limite_tentativas_contato: number
@@ -48,6 +49,7 @@ export function ConfiguracoesClient({
   config: initialConfig,
   communicationConfig: initialCommConfig
 }: ConfiguracoesClientProps) {
+  const { showAlert } = useSystemModal()
   const [activeTab, setActiveTab] = useState<'GERAL' | 'SMTP' | 'WHATSAPP'>('GERAL')
 
   // Estado das configurações gerais
@@ -115,7 +117,11 @@ export function ConfiguracoesClient({
   // Testar SMTP
   const handleTestSmtp = async () => {
     if (!testSmtpEmail.trim()) {
-      alert('Por favor, informe o e-mail de destino para receber o teste.')
+      await showAlert({
+        title: 'E-mail Ausente',
+        message: 'Por favor, informe o e-mail de destino para receber o teste.',
+        type: 'warning'
+      })
       return
     }
 
@@ -137,7 +143,11 @@ export function ConfiguracoesClient({
   // Testar WhatsApp API
   const handleTestWhatsApp = async () => {
     if (!testWaPhone.trim()) {
-      alert('Informe o número de WhatsApp com DDD para o teste.')
+      await showAlert({
+        title: 'Número Ausente',
+        message: 'Por favor, informe o número de WhatsApp com DDD para realizar o teste.',
+        type: 'warning'
+      })
       return
     }
 

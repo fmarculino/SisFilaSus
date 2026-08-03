@@ -7,6 +7,7 @@ import {
   User, FileText, ArrowRight, ShieldCheck, ShieldAlert 
 } from 'lucide-react'
 import { approveMovement, rejectMovement } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface MovimentacoesClientProps {
   role: string
@@ -17,6 +18,7 @@ interface MovimentacoesClientProps {
 export function MovimentacoesClient({ role, email, movimentacoes: initialMovs }: MovimentacoesClientProps) {
   const [movs, setMovs] = useState(initialMovs)
   const [activeTab, setActiveTab] = useState<'PENDING' | 'HISTORY'>('PENDING')
+  const { showAlert } = useSystemModal()
   
   // Decisão de aprovação/rejeição
   const [decisionNotes, setDecisionNotes] = useState<{ [key: string]: string }>({})
@@ -35,10 +37,18 @@ export function MovimentacoesClient({ role, email, movimentacoes: initialMovs }:
     try {
       if (action === 'APPROVE') {
         await approveMovement(id, note)
-        alert('Movimentação aprovada com sucesso! As alterações foram aplicadas à fila.')
+        await showAlert({
+          title: 'Sucesso',
+          message: 'Movimentação aprovada com sucesso! As alterações foram aplicadas à fila.',
+          type: 'success'
+        })
       } else {
         await rejectMovement(id, note)
-        alert('Movimentação rejeitada com sucesso!')
+        await showAlert({
+          title: 'Sucesso',
+          message: 'Movimentação rejeitada com sucesso!',
+          type: 'success'
+        })
       }
       
       // Atualizar lista localmente
@@ -55,7 +65,11 @@ export function MovimentacoesClient({ role, email, movimentacoes: initialMovs }:
         return m
       }))
     } catch (err: any) {
-      alert(err.message || 'Erro ao processar decisão.')
+      await showAlert({
+        title: 'Erro',
+        message: err.message || 'Erro ao processar decisão.',
+        type: 'error'
+      })
     } finally {
       setSubmitting(prev => ({ ...prev, [id]: false }))
     }

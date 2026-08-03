@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Portal } from '@/components/ui/Portal'
 import { savePrestador } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface PrestadoresClientProps {
   role: string
@@ -31,6 +32,7 @@ const DISPONIVEIS_ESPECIALIDADES = [
 ]
 
 export function PrestadoresClient({ role, email, prestadores: initialPrestadores }: PrestadoresClientProps) {
+  const { showAlert } = useSystemModal()
   const [prestadores, setPrestadores] = useState(initialPrestadores)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | undefined>(undefined)
@@ -70,19 +72,31 @@ export function PrestadoresClient({ role, email, prestadores: initialPrestadores
     e.preventDefault()
     
     if (cnes.trim().length < 7 || cnes.trim().length > 10) {
-      alert('O código CNES deve possuir entre 7 e 10 caracteres numéricos.')
+      await showAlert({
+        title: 'CNES Inválido',
+        message: 'O código CNES deve possuir entre 7 e 10 caracteres numéricos.',
+        type: 'warning'
+      })
       return
     }
 
     if (!nome.trim()) {
-      alert('O nome do prestador é obrigatório.')
+      await showAlert({
+        title: 'Nome Obrigatório',
+        message: 'O nome do prestador é obrigatório.',
+        type: 'warning'
+      })
       return
     }
 
     setSubmitting(true)
     try {
       await savePrestador(editingId, cnes, nome, active, selectedSpecs)
-      alert(editingId ? 'Prestador atualizado com sucesso!' : 'Prestador cadastrado com sucesso!')
+      await showAlert({
+        title: 'Sucesso',
+        message: editingId ? 'Prestador atualizado com sucesso!' : 'Prestador cadastrado com sucesso!',
+        type: 'success'
+      })
       
       // Atualizar lista localmente
       if (editingId) {
@@ -99,7 +113,11 @@ export function PrestadoresClient({ role, email, prestadores: initialPrestadores
       
       setModalOpen(false)
     } catch (err: any) {
-      alert(err.message || 'Erro ao salvar prestador.')
+      await showAlert({
+        title: 'Erro ao Salvar',
+        message: err.message || 'Erro ao salvar prestador.',
+        type: 'error'
+      })
     } finally {
       setSubmitting(false)
     }

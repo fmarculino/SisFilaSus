@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Portal } from '@/components/ui/Portal'
 import { createUserAction, updateUserAction } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface UserProfile {
   id: string
@@ -46,6 +47,7 @@ export function UsuariosClient({
   users: initialUsers, 
   unidades 
 }: UsuariosClientProps) {
+  const { showAlert, showConfirm } = useSystemModal()
   const [users, setUsers] = useState<UserProfile[]>(initialUsers)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | undefined>(undefined)
@@ -90,22 +92,22 @@ export function UsuariosClient({
     e.preventDefault()
 
     if (!nome.trim()) {
-      alert('O nome do usuário é obrigatório.')
+      await showAlert({ title: 'Atenção', message: 'O nome do usuário é obrigatório.', type: 'warning' })
       return
     }
 
     if (!email.trim() || !email.includes('@')) {
-      alert('Informe um e-mail válido.')
+      await showAlert({ title: 'Atenção', message: 'Informe um e-mail válido.', type: 'warning' })
       return
     }
 
     if (!editingId && (!password || password.length < 6)) {
-      alert('A senha é obrigatória para novas contas e deve ter pelo menos 6 caracteres.')
+      await showAlert({ title: 'Atenção', message: 'A senha é obrigatória para novas contas e deve ter pelo menos 6 caracteres.', type: 'warning' })
       return
     }
 
     if (role === 'UNIDADE_USER' && !cnesVinculo) {
-      alert('Usuários do tipo Unidade Solicitante devem possuir vínculo com um CNES.')
+      await showAlert({ title: 'Atenção', message: 'Usuários do tipo Unidade Solicitante devem possuir vínculo com um CNES.', type: 'warning' })
       return
     }
 
@@ -123,7 +125,7 @@ export function UsuariosClient({
       if (editingId) {
         const res = await updateUserAction(editingId, payload)
         if (!res.success) throw new Error(res.error)
-        alert('Usuário atualizado com sucesso!')
+        await showAlert({ title: 'Sucesso', message: 'Usuário atualizado com sucesso!', type: 'success' })
         
         // Atualizar lista localmente
         setUsers(prev => prev.map(u => {
@@ -142,7 +144,7 @@ export function UsuariosClient({
       } else {
         const res = await createUserAction(payload)
         if (!res.success) throw new Error(res.error)
-        alert('Usuário cadastrado com sucesso!')
+        await showAlert({ title: 'Sucesso', message: 'Usuário cadastrado com sucesso!', type: 'success' })
         
         // Como o ID é gerado no Auth/DB, recarrega a página para puxar a lista limpa e atualizada
         window.location.reload()
@@ -150,7 +152,7 @@ export function UsuariosClient({
       
       setModalOpen(false)
     } catch (err: any) {
-      alert(err.message || 'Erro ao salvar usuário.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao salvar usuário.', type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -158,15 +160,21 @@ export function UsuariosClient({
 
   const handleToggleActive = async (u: UserProfile) => {
     if (u.email.toLowerCase() === userEmail.toLowerCase()) {
-      alert('Você não pode suspender ou alterar o status de sua própria conta atualmente logada!')
+      await showAlert({ title: 'Atenção', message: 'Você não pode suspender ou alterar o status de sua própria conta atualmente logada!', type: 'warning' })
       return
     }
 
     const newActiveState = !u.active
     const actionText = newActiveState ? 'ativar' : 'inativar'
-    if (!confirm(`Tem certeza de que deseja ${actionText} o usuário "${u.nome}" (${u.email})?`)) {
-      return
-    }
+    
+    const confirmed = await showConfirm({
+      title: 'Confirmação',
+      message: `Tem certeza de que deseja ${actionText} o usuário "${u.nome}" (${u.email})?`,
+      confirmText: 'Confirmar',
+      variant: newActiveState ? 'success' : 'danger'
+    })
+    
+    if (!confirmed) return
 
     try {
       const res = await updateUserAction(u.id, {
@@ -184,9 +192,17 @@ export function UsuariosClient({
         }
         return item
       }))
-      alert(`Usuário ${newActiveState ? 'ativado' : 'inativado'} com sucesso!`)
+      await showAlert({
+        title: 'Status Alterado',
+        message: `Usuário ${newActiveState ? 'ativado' : 'inativado'} com sucesso!`,
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao alterar status do usuário.')
+      await showAlert({
+        title: 'Erro ao Alterar Status',
+        message: err.message || 'Erro ao alterar status do usuário.',
+        type: 'error'
+      })
     }
   }
 

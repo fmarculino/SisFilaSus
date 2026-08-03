@@ -5,6 +5,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Phone, MessageSquare, Check, X, Calendar, User, FileText, AlertCircle, Send, ExternalLink, Loader2 } from 'lucide-react'
 import { createContactLog, fetchSolicitacaoExtraData } from '../fila/actions'
 import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface ConvocacaoClientProps {
   role: string
@@ -14,6 +15,7 @@ interface ConvocacaoClientProps {
 }
 
 export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templates }: ConvocacaoClientProps) {
+  const { showAlert } = useSystemModal()
   const [solicitacoes, setSolicitacoes] = useState(initialSols)
   const [activeTab, setActiveTab] = useState<'ALL' | 'EM_CONVOCACAO' | 'SEM_CONTATO'>('ALL')
   const [selectedSol, setSelectedSol] = useState<any | null>(null)
@@ -99,11 +101,19 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
         }))
       }
 
-      alert('Contato registrado e lista atualizada!')
+      await showAlert({
+        title: 'Contato Registrado',
+        message: 'O log de contato foi gravado com sucesso e a lista foi atualizada.',
+        type: 'success'
+      })
       setSelectedSol(null)
       setObs('')
     } catch (err: any) {
-      alert(err.message || 'Erro ao registrar contato.')
+      await showAlert({
+        title: 'Erro ao Registrar Contato',
+        message: err.message || 'Erro ao registrar contato.',
+        type: 'error'
+      })
     } finally {
       setSaving(false)
     }
@@ -113,7 +123,11 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
     if (!selectedSol) return
     const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
     if (!tel) {
-      alert('Paciente não possui WhatsApp/Telefone cadastrado.')
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        type: 'warning'
+      })
       return
     }
 
@@ -124,7 +138,11 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
       const res = await sendWhatsAppMessageAction({ phone: tel, message: text })
 
       if (res.success) {
-        alert(`Mensagem enviada com sucesso para ${res.phoneUsed || tel} via AstraCalls API!`)
+        await showAlert({
+          title: 'WhatsApp Enviado',
+          message: `Mensagem enviada com sucesso para ${res.phoneUsed || tel} via AstraCalls API!`,
+          type: 'success'
+        })
         // Registrar log de contato automaticamente
         await createContactLog(
           selectedSol.cod_solicitacao,
@@ -136,10 +154,18 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
         setOutcome('SUCESSO_CONFIRMOU')
         setObs(`WhatsApp enviado via AstraCalls API:\n"${text}"`)
       } else {
-        alert(`Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`)
+        await showAlert({
+          title: 'Falha no Disparo API',
+          message: `Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`,
+          type: 'error'
+        })
       }
     } catch (err: any) {
-      alert(`Erro ao comunicar com a API do WhatsApp: ${err.message}`)
+      await showAlert({
+        title: 'Erro na API WhatsApp',
+        message: `Erro ao comunicar com a API do WhatsApp: ${err.message}`,
+        type: 'error'
+      })
     } finally {
       setSendingWa(false)
     }
@@ -149,7 +175,11 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
     if (!selectedSol) return
     const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
     if (!tel) {
-      alert('Paciente não possui WhatsApp/Telefone cadastrado.')
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        type: 'warning'
+      })
       return
     }
 

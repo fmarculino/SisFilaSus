@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus, encaminharParaPrestador } from './actions'
 import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 
 const formatPhone = (value: string) => {
@@ -74,6 +75,7 @@ export function FilaClient({
   anosLimpezaFila = 5,
   appliedFilters,
 }: FilaClientProps) {
+  const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -308,9 +310,17 @@ export function FilaClient({
           telefone_2: tel2
         }
       })
-      alert('Telefones atualizados com sucesso!')
+      await showAlert({
+        title: 'Telefones Atualizados',
+        message: 'Os números de telefone do paciente foram salvos com sucesso.',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar telefones.')
+      await showAlert({
+        title: 'Erro ao Salvar Telefone',
+        message: err.message || 'Erro ao atualizar telefones.',
+        type: 'error'
+      })
     } finally {
       setSavingPhone(false)
     }
@@ -335,9 +345,17 @@ export function FilaClient({
         contactOutcome === 'SUCESSO_RECUSOU' ? 'CONVOCADO_RECUSOU' :
         contactOutcome === 'SEM_RESPOSTA' ? 'SEM_CONTATO' : selectedSol.status_interno
       
-      alert('Contato adicionado e status atualizado!')
+      await showAlert({
+        title: 'Contato Registrado',
+        message: 'Log de contato adicionado e status do paciente atualizado com sucesso.',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao registrar contato.')
+      await showAlert({
+        title: 'Erro ao Registrar Contato',
+        message: err.message || 'Erro ao registrar contato.',
+        type: 'error'
+      })
     } finally {
       setSavingContact(false)
     }
@@ -347,7 +365,11 @@ export function FilaClient({
     e.preventDefault()
     if (!selectedSol) return
     if (!moveJustification.trim()) {
-      alert('Justificativa é obrigatória!')
+      await showAlert({
+        title: 'Justificativa Obrigatória',
+        message: 'Por favor, descreva a justificativa clínica/operacional para a movimentação.',
+        type: 'warning'
+      })
       return
     }
 
@@ -363,12 +385,20 @@ export function FilaClient({
 
       await proposeMovement(selectedSol.cod_solicitacao, moveType, moveJustification, valorNovo)
       
-      alert('Solicitação de movimentação enviada com sucesso e pendente de aprovação!')
+      await showAlert({
+        title: 'Movimentação Proposta',
+        message: 'Solicitação de movimentação enviada com sucesso e pendente de aprovação!',
+        type: 'success'
+      })
       setMoveJustification('')
       setNewRisco('')
       setNewPos('')
     } catch (err: any) {
-      alert(err.message || 'Erro ao propor movimentação.')
+      await showAlert({
+        title: 'Erro ao Propor Movimentação',
+        message: err.message || 'Erro ao propor movimentação.',
+        type: 'error'
+      })
     } finally {
       setSavingMovement(false)
     }
@@ -378,14 +408,24 @@ export function FilaClient({
     e.preventDefault()
     if (!selectedSol) return
     if (!selectedPrestadorId) {
-      alert('Selecione um hospital prestador.')
+      await showAlert({
+        title: 'Prestador Não Selecionado',
+        message: 'Selecione um hospital ou clínica prestadora.',
+        type: 'warning'
+      })
       return
     }
     
     const nextStatus = dataInternaInput && dataInternaInput.trim().length > 0 ? 'INTERNADO' : 'ENCAMINHADO'
     const statusLabel = nextStatus === 'INTERNADO' ? 'Internado' : 'Encaminhado Hospital/Clínica'
     
-    if (!confirm(`Confirmar encaminhamento? O status será alterado para ${statusLabel}.`)) return
+    const confirmed = await showConfirm({
+      title: 'Confirmar Encaminhamento',
+      message: `Deseja confirmar o encaminhamento do paciente? O status operacional será alterado para "${statusLabel}".`,
+      confirmText: 'Confirmar Encaminhamento',
+      variant: 'primary'
+    })
+    if (!confirmed) return
 
     setSavingEncaminhamento(true)
     try {
@@ -403,9 +443,17 @@ export function FilaClient({
         dataEncaminhamento: new Date().toISOString().split('T')[0],
         dataInternacao: dataInternaInput || null,
       }))
-      alert('Paciente encaminhado com sucesso!')
+      await showAlert({
+        title: 'Encaminhamento Concluído',
+        message: 'Paciente encaminhado ao prestador com sucesso!',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao encaminhar paciente.')
+      await showAlert({
+        title: 'Erro ao Encaminhar',
+        message: err.message || 'Erro ao encaminhar paciente.',
+        type: 'error'
+      })
     } finally {
       setSavingEncaminhamento(false)
     }
@@ -416,7 +464,11 @@ export function FilaClient({
 
   const handleSendDirectWhatsApp = async () => {
     if (!selectedSol || !tel1) {
-      alert('Paciente não possui WhatsApp/Telefone cadastrado.')
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui WhatsApp/Telefone cadastrado.',
+        type: 'warning'
+      })
       return
     }
 
@@ -427,7 +479,11 @@ export function FilaClient({
       const res = await sendWhatsAppMessageAction({ phone: tel1, message: text })
 
       if (res.success) {
-        alert(`Mensagem enviada com sucesso para ${res.phoneUsed || tel1} via AstraCalls API!`)
+        await showAlert({
+          title: 'WhatsApp Enviado',
+          message: `Mensagem enviada com sucesso para ${res.phoneUsed || tel1} via AstraCalls API!`,
+          type: 'success'
+        })
         // Log de contato automático
         await createContactLog(
           selectedSol.cod_solicitacao,
@@ -439,10 +495,18 @@ export function FilaClient({
         const freshData = await fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
         setExtraData(freshData)
       } else {
-        alert(`Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`)
+        await showAlert({
+          title: 'Falha no Envio API',
+          message: `Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`,
+          type: 'error'
+        })
       }
     } catch (err: any) {
-      alert(`Erro ao comunicar com a API do WhatsApp: ${err.message}`)
+      await showAlert({
+        title: 'Erro na API WhatsApp',
+        message: `Erro ao comunicar com a API do WhatsApp: ${err.message}`,
+        type: 'error'
+      })
     } finally {
       setSendingWa(false)
     }
@@ -1008,13 +1072,27 @@ export function FilaClient({
                           value={selectedSol.status_interno}
                           onChange={async (e) => {
                             const nextStatus = e.target.value
-                            if (confirm(`Deseja alterar o status desta solicitação para "${nextStatus}"?`)) {
+                            const confirmed = await showConfirm({
+                              title: 'Alterar Status Interno',
+                              message: `Deseja alterar o status desta solicitação para "${nextStatus}"?`,
+                              confirmText: 'Alterar Status',
+                              variant: 'primary'
+                            })
+                            if (confirmed) {
                               try {
                                 await updateSolicitacaoStatus(selectedSol.cod_solicitacao, nextStatus)
                                 setSelectedSol({ ...selectedSol, status_interno: nextStatus })
-                                alert('Status atualizado com sucesso!')
+                                await showAlert({
+                                  title: 'Status Atualizado',
+                                  message: 'Status operacional alterado com sucesso!',
+                                  type: 'success'
+                                })
                               } catch (err: any) {
-                                alert(err.message || 'Erro ao atualizar status')
+                                await showAlert({
+                                  title: 'Erro ao Atualizar Status',
+                                  message: err.message || 'Erro ao atualizar status',
+                                  type: 'error'
+                                })
                               }
                             }
                           }}

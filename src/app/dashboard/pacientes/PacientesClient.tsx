@@ -10,6 +10,7 @@ import {
   Phone, Calendar, AlertCircle, FileText
 } from 'lucide-react'
 import { savePacienteAction, deletePacienteAction } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface Paciente {
   id: string
@@ -49,6 +50,7 @@ export function PacientesClient({
   municipioParam,
   municipios
 }: PacientesClientProps) {
+  const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -163,22 +165,22 @@ export function PacientesClient({
     const cleanCpf = cpf ? cpf.replace(/\D/g, '') : ''
 
     if (cleanCns.length !== 15) {
-      alert('O Cartão SUS (CNS) deve conter exatamente 15 dígitos.')
+      await showAlert({ title: 'Atenção', message: 'O Cartão SUS (CNS) deve conter exatamente 15 dígitos.', type: 'warning' })
       return
     }
 
     if (cleanCpf && cleanCpf.length !== 11) {
-      alert('O CPF do paciente deve conter exatamente 11 dígitos.')
+      await showAlert({ title: 'Atenção', message: 'O CPF do paciente deve conter exatamente 11 dígitos.', type: 'warning' })
       return
     }
 
     if (!nome.trim()) {
-      alert('O nome do paciente é obrigatório.')
+      await showAlert({ title: 'Atenção', message: 'O nome do paciente é obrigatório.', type: 'warning' })
       return
     }
 
     if (!nascimento) {
-      alert('A data de nascimento é obrigatória.')
+      await showAlert({ title: 'Atenção', message: 'A data de nascimento é obrigatória.', type: 'warning' })
       return
     }
 
@@ -200,13 +202,13 @@ export function PacientesClient({
 
       if (!res.success) throw new Error(res.error)
 
-      alert(editingId ? 'Ficha do paciente atualizada com sucesso!' : 'Paciente cadastrado com sucesso!')
+      await showAlert({ title: 'Sucesso', message: editingId ? 'Ficha do paciente atualizada com sucesso!' : 'Paciente cadastrado com sucesso!', type: 'success' })
       
       // Recarregar a página para puxar os dados atualizados do banco
       window.location.reload()
       setModalOpen(false)
     } catch (err: any) {
-      alert(err.message || 'Erro ao salvar paciente.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao salvar paciente.', type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -214,21 +216,26 @@ export function PacientesClient({
 
   const handleDelete = async (id: string, name: string) => {
     if (role !== 'SMS_ADMIN') {
-      alert('Apenas usuários com perfil de Administrador podem excluir pacientes.')
+      await showAlert({ title: 'Acesso Negado', message: 'Apenas usuários com perfil de Administrador podem excluir pacientes.', type: 'warning' })
       return
     }
 
-    if (!confirm(`Tem certeza de que deseja remover permanentemente o paciente "${name}"? Esta ação removerá em cascata todas as suas solicitações da fila!`)) {
-      return
-    }
+    const confirmed = await showConfirm({
+      title: 'Confirmar Exclusão',
+      message: `Tem certeza de que deseja remover permanentemente o paciente "${name}"? Esta ação removerá em cascata todas as suas solicitações da fila!`,
+      confirmText: 'Excluir',
+      variant: 'danger'
+    })
+    
+    if (!confirmed) return
 
     try {
       const res = await deletePacienteAction(id)
       if (!res.success) throw new Error(res.error)
       setPacientes(prev => prev.filter(p => p.id !== id))
-      alert('Paciente e suas solicitações excluídos com sucesso!')
+      await showAlert({ title: 'Sucesso', message: 'Paciente e suas solicitações excluídos com sucesso!', type: 'success' })
     } catch (err: any) {
-      alert(err.message || 'Erro ao remover paciente.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao remover paciente.', type: 'error' })
     }
   }
 

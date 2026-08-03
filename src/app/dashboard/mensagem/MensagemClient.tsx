@@ -6,6 +6,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Plus, Edit2, Trash2, X, FileText, Sparkles, MessageSquare, AlertCircle, RefreshCw } from 'lucide-react'
 import { Portal } from '@/components/ui/Portal'
 import { saveTemplateAction, deleteTemplateAction, seedDefaultTemplatesAction } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface Template {
   id: string
@@ -22,6 +23,7 @@ interface MensagemClientProps {
 }
 
 export function MensagemClient({ role, email, templates: initialTemplates }: MensagemClientProps) {
+  const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const [templates, setTemplates] = useState<Template[]>(initialTemplates)
   const [search, setSearch] = useState('')
@@ -84,12 +86,12 @@ export function MensagemClient({ role, email, templates: initialTemplates }: Men
     e.preventDefault()
 
     if (!titulo.trim()) {
-      alert('O título do modelo é obrigatório.')
+      await showAlert({ title: 'Aviso', message: 'O título do modelo é obrigatório.', type: 'warning' })
       return
     }
 
     if (!corpo.trim()) {
-      alert('O corpo da mensagem é obrigatório.')
+      await showAlert({ title: 'Aviso', message: 'O corpo da mensagem é obrigatório.', type: 'warning' })
       return
     }
 
@@ -103,30 +105,34 @@ export function MensagemClient({ role, email, templates: initialTemplates }: Men
 
       if (!res.success) throw new Error(res.error)
 
-      alert(editingId ? 'Modelo atualizado com sucesso!' : 'Modelo cadastrado com sucesso!')
+      await showAlert({ title: 'Sucesso', message: editingId ? 'Modelo atualizado com sucesso!' : 'Modelo cadastrado com sucesso!', type: 'success' })
       
       // Recarregar dados
       window.location.reload()
       setModalOpen(false)
     } catch (err: any) {
-      alert(err.message || 'Erro ao salvar modelo de mensagem.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao salvar modelo de mensagem.', type: 'error' })
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Tem certeza de que deseja remover permanentemente o modelo "${title}"?`)) {
-      return
-    }
+    const confirmed = await showConfirm({
+        title: 'Confirmar Exclusão',
+        message: `Tem certeza de que deseja remover permanentemente o modelo "${title}"?`,
+        confirmText: 'Excluir',
+        variant: 'danger'
+    })
+    if (!confirmed) return
 
     try {
       const res = await deleteTemplateAction(id)
       if (!res.success) throw new Error(res.error)
       setTemplates(prev => prev.filter(t => t.id !== id))
-      alert('Modelo removido com sucesso!')
+      await showAlert({ title: 'Sucesso', message: 'Modelo removido com sucesso!', type: 'success' })
     } catch (err: any) {
-      alert(err.message || 'Erro ao remover modelo.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao remover modelo.', type: 'error' })
     }
   }
 
@@ -135,10 +141,10 @@ export function MensagemClient({ role, email, templates: initialTemplates }: Men
     try {
       const res = await seedDefaultTemplatesAction()
       if (!res.success) throw new Error(res.error)
-      alert('Modelos padrão inseridos com sucesso!')
+      await showAlert({ title: 'Sucesso', message: 'Modelos padrão inseridos com sucesso!', type: 'success' })
       window.location.reload()
     } catch (err: any) {
-      alert(err.message || 'Erro ao gerar modelos padrão.')
+      await showAlert({ title: 'Erro', message: err.message || 'Erro ao gerar modelos padrão.', type: 'error' })
     } finally {
       setSeeding(false)
     }

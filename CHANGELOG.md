@@ -19,6 +19,11 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
   * Adicionadas as abas **E-mail Transacional (SMTP)** e **WhatsApp (AstraCalls)** para gestão de credenciais e alternância de status ativo/inativo.
   * Adicionados botões para **Testar Conexão SMTP** e **Testar Disparo WhatsApp API** em tempo real com modal de verificação.
 
+* **Sistema Global de Modais e Alertas (`SystemModalProvider`)**:
+  * Substituídos 100% dos popups nativos do navegador (`alert` e `confirm`) por modais nativos do sistema em React (`src/components/ui/SystemModal.tsx`).
+  * Design Bento consistente com o layout do sistema, animações fluidas, suporte a dark/light mode, ícones de status (`success`, `error`, `warning`, `info`) e promessas assíncronas para confirmações.
+  * Aplicado em todos os módulos operacionais: Fila de Espera, Convocação, Usuários, Prestadores, Pacientes, Modelos de Mensagens, Movimentações, Sincronização e Configurações.
+
 ---
 
 ## [0.6.5-beta] — 2026-06-10
