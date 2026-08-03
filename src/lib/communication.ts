@@ -92,7 +92,7 @@ export async function getWhatsAppWebUrl(phoneRaw: string, message: string): Prom
 }
 
 /**
- * Envia mensagem direta via API AstraCalls com retry nas variações de formato do número.
+ * Envia mensagem direta via API AstraCalls com suporte multi-endpoint REST e auto-discovery de sessões.
  */
 export async function sendWhatsAppMessageAction(params: {
   phone: string
@@ -115,37 +115,119 @@ export async function sendWhatsAppMessageAction(params: {
   }
 
   const baseUrl = (config.wacalls_url || 'https://astracall.atb.app.br').replace(/\/$/, '')
-  const apiKey = config.wacalls_api_key || ''
-  const session = config.wacalls_session
+  const apiKey = (config.wacalls_api_key || '').trim()
+  const session = (config.wacalls_session || 'default').trim()
 
   const phoneVariants = await getWhatsAppPhoneVariants(phone)
-  let lastError = ''
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey
+  }
 
-  for (const targetPhone of phoneVariants) {
-    const chatId = `${targetPhone}@s.whatsapp.net`
+  // Função para testar disparo por múltiplos endpoints suportados pelo AstraCalls/WAHA
+  const attemptSend = async (sessionSid: string, destinationPhone: string) => {
+    // 1. Endpoint padrão AstraCalls REST API v2 (/api/sessions/:sid/messages/text)
     try {
-      const response = await fetch(`${baseUrl}/message/text`, {
+      const res = await fetch(`${baseUrl}/api/sessions/${encodeURIComponent(sessionSid)}/messages/text`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-        },
+        headers,
+        body: JSON.stringify({ to: destinationPhone, text: message }),
+      })
+      if (res.ok) {
+        return { ok: true, phoneUsed: destinationPhone }
+      }
+    } catch (e) {}
+
+    // 2. Endpoint alternativo AstraCalls/WAHA (/api/sendText)
+    try {
+      const res = await fetch(`${baseUrl}/api/sendText`, {
+        method: 'POST',
+        headers,
         body: JSON.stringify({
-          session,
-          chatId,
+          session: sessionSid,
+          chatId: `${destinationPhone}@s.whatsapp.net`,
           text: message,
         }),
       })
-
-      if (response.ok) {
-        return { success: true, phoneUsed: targetPhone }
+      if (res.ok) {
+        return { ok: true, phoneUsed: destinationPhone }
       }
+    } catch (e) {}
 
-      const errText = await response.text()
-      lastError = `HTTP ${response.status}: ${errText}`
-    } catch (err: any) {
-      lastError = err.message || 'Erro de conexão com o servidor AstraCalls'
+    // 3. Endpoint alternativo simples (/message/text)
+    try {
+      const res = await fetch(`${baseUrl}/message/text`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session: sessionSid,
+          chatId: `${destinationPhone}@s.whatsapp.net`,
+          text: message,
+        }),
+      })
+      if (res.ok) {
+        return { ok: true, phoneUsed: destinationPhone }
+      }
+    } catch (e) {}
+
+    return { ok: false }
+  }
+
+  let lastError = ''
+
+  // 1ª Passada: Tenta com a sessão configurada
+  for (const targetPhone of phoneVariants) {
+    const res = await attemptSend(session, targetPhone)
+    if (res.ok) {
+      return { success: true, phoneUsed: targetPhone }
     }
+  }
+
+  // 2ª Passada: Tenta auto-descobrir a sessão ativa no servidor AstraCalls caso o nome/ID divirja
+  try {
+    const sessionsRes = await fetch(`${baseUrl}/api/sessions`, { headers })
+    if (sessionsRes.ok) {
+      const sessionsJson = await sessionsRes.json()
+      const sessionsList = Array.isArray(sessionsJson?.sessions)
+        ? sessionsJson.sessions
+        : Array.isArray(sessionsJson)
+        ? sessionsJson
+        : []
+
+      const matchedSession = sessionsList.find(
+        (s: any) =>
+          s.id === session ||
+          s.name === session ||
+          (s.name && s.name.toLowerCase() === session.toLowerCase())
+      ) || sessionsList.find(
+        (s: any) =>
+          (s.state === 'open' || s.status === 'WORKING' || s.paired === true) &&
+          (s.name && (s.name.includes(session) || session.includes(s.name)))
+      ) || sessionsList.find(
+        (s: any) => s.state === 'open' || s.status === 'WORKING' || s.paired === true
+      )
+
+      if (matchedSession && matchedSession.id) {
+        for (const targetPhone of phoneVariants) {
+          const res = await attemptSend(matchedSession.id, targetPhone)
+          if (res.ok) {
+            return { success: true, phoneUsed: targetPhone }
+          }
+        }
+      }
+    } else {
+      const errText = await sessionsRes.text()
+      lastError = `HTTP ${sessionsRes.status}: ${errText}`
+    }
+  } catch (err: any) {
+    lastError = err.message || 'Erro ao comunicar com o servidor AstraCalls'
+  }
+
+  if (!lastError) {
+    lastError = 'HTTP 404: Não foi possível localizar um endpoint válido ou sessão conectada no AstraCalls.'
   }
 
   return { success: false, error: lastError }
@@ -187,7 +269,7 @@ export async function sendEmailAction(params: {
       pass: config.smtp_pass || '',
     },
     tls: {
-      rejectUnauthorized: false // Para compatibilidade com servidores locais ou auto-assinados
+      rejectUnauthorized: false
     }
   })
 
