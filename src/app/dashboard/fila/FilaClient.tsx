@@ -8,9 +8,10 @@ import { Portal } from '@/components/ui/Portal'
 import { 
   Search, Filter, Eye, Phone, MessageSquare, Plus, X, 
   Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
-  ArrowUpDown
+  ArrowUpDown, Send, ExternalLink, Loader2
 } from 'lucide-react'
 import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus, encaminharParaPrestador } from './actions'
+import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
 
 
 const formatPhone = (value: string) => {
@@ -411,19 +412,53 @@ export function FilaClient({
   }
 
   // Geração de Mensagem via WhatsApp
-  const handleOpenWhatsApp = () => {
+  const [sendingWa, setSendingWa] = useState(false)
+
+  const handleSendDirectWhatsApp = async () => {
+    if (!selectedSol || !tel1) {
+      alert('Paciente não possui WhatsApp/Telefone cadastrado.')
+      return
+    }
+
+    const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação da Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda a esta mensagem.`
+
+    setSendingWa(true)
+    try {
+      const res = await sendWhatsAppMessageAction({ phone: tel1, message: text })
+
+      if (res.success) {
+        alert(`Mensagem enviada com sucesso para ${res.phoneUsed || tel1} via AstraCalls API!`)
+        // Log de contato automático
+        await createContactLog(
+          selectedSol.cod_solicitacao,
+          'WHATSAPP',
+          'SUCESSO_CONFIRMOU',
+          res.phoneUsed || tel1,
+          `WhatsApp enviado via AstraCalls API:\n"${text}"`
+        )
+        const freshData = await fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
+        setExtraData(freshData)
+      } else {
+        alert(`Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`)
+      }
+    } catch (err: any) {
+      alert(`Erro ao comunicar com a API do WhatsApp: ${err.message}`)
+    } finally {
+      setSendingWa(false)
+    }
+  }
+
+  const handleOpenWhatsAppWeb = async () => {
     if (!selectedSol || !tel1) return
     
     const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação da Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda a esta mensagem.`
 
-    const cleanPhone = tel1.replace(/\D/g, '')
-    const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(text)}`
+    const url = await getWhatsAppWebUrl(tel1, text)
     window.open(url, '_blank')
 
-    // Prefill log de contato automático para facilitar a vida do operador
     setContactType('WHATSAPP')
     setContactOutcome('SUCESSO_CONFIRMOU')
-    setContactObs(`WhatsApp aberto com template enviado:\n"${text}"`)
+    setContactObs(`WhatsApp Web aberto manualmente:\n"${text}"`)
   }
 
   const getAge = (birthDateString: string | null) => {
@@ -1145,14 +1180,26 @@ export function FilaClient({
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleOpenWhatsApp}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-500/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-600"
-                      >
-                        <Phone className="h-4 w-4" />
-                        <span>Chamar no WhatsApp</span>
-                      </button>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleSendDirectWhatsApp}
+                          disabled={sendingWa}
+                          className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-600/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-500 disabled:opacity-50"
+                        >
+                          {sendingWa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          <span>{sendingWa ? 'Enviando...' : 'Enviar API Direto'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenWhatsAppWeb}
+                          className="flex items-center justify-center gap-2 py-3 bg-background/80 hover:bg-accent/20 border border-border/50 text-foreground rounded-xl text-xs font-black uppercase tracking-widest active:scale-[0.99] transition-all cursor-pointer"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          <span>WhatsApp Web</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -393,3 +393,25 @@ CREATE POLICY "Edição de templates exclusiva para gestores" ON public.template
 
 CREATE POLICY "Leitura de configurações gerais para usuários autenticados" ON public.configuracoes FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Edição de configurações exclusiva para gestores" ON public.configuracoes FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR'));
+
+-- 10. Inserção Inicial de Configurações Padrão
+INSERT INTO public.configuracoes (chave, valor)
+VALUES (
+    'comunicacao',
+    '{
+        "smtp_host": "smtp.gmail.com",
+        "smtp_port": "587",
+        "smtp_user": "",
+        "smtp_pass": "",
+        "smtp_from_name": "SisFilaSUS - Regulação de Saúde Marabá",
+        "smtp_from_email": "",
+        "smtp_secure": false,
+        "wacalls_url": "https://astracall.atb.app.br",
+        "wacalls_session": "inbox3_acc6",
+        "wacalls_api_key": "CotEnKV5ykYG5HKiSQizExXnmVnCYFXM",
+        "whatsapp_enabled": true,
+        "email_enabled": true
+    }'::jsonb
+)
+ON CONFLICT (chave) DO NOTHING;
+

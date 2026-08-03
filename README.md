@@ -11,6 +11,7 @@ Toda a documentação operacional e técnica detalhada está organizada na pasta
 2. **[Manual do Coordenador e Administrador](file:///c:/Users/Cliente/Projetos/SisFilaSus/doc/manual_coordenador.md)**: Guia de gerenciamento de usuários, upload de arquivos SISREG, triagem e aprovação de movimentações e visualização de logs de auditoria.
 3. **[Manual do Operador e Regulador](file:///c:/Users/Cliente/Projetos/SisFilaSus/doc/manual_operador.md)**: Instruções para uso da fila, filtros, drawers de detalhes, modelos de mensagem e convocação ativa via WhatsApp.
 4. **[Arquitetura e Fluxo de Dados](file:///c:/Users/Cliente/Projetos/SisFilaSus/doc/arquitetura_fluxos.md)**: Detalhamento técnico da modelagem de banco de dados, triggers Postgres, views, políticas de RLS e diff de auditoria.
+5. **[Guia Técnico: Comunicação & Autenticação SSR](file:///c:/Users/Cliente/Projetos/SisFilaSus/doc/GUIA_INTEGRACAO_COMUNICACAO_E_AUTH.md)**: Guia completo sobre disparo por WhatsApp AstraCalls API (trabalho do 9º dígito), e-mail transacional SMTP e fluxo de recuperação de senha.
 
 ---
 
