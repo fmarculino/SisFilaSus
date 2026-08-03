@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
-import { Phone, MessageSquare, Check, X, Calendar, User, FileText, AlertCircle } from 'lucide-react'
+import { Phone, MessageSquare, Check, X, Calendar, User, FileText, AlertCircle, Send, ExternalLink, Loader2 } from 'lucide-react'
 import { createContactLog, fetchSolicitacaoExtraData } from '../fila/actions'
+import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface ConvocacaoClientProps {
   role: string
@@ -13,6 +15,7 @@ interface ConvocacaoClientProps {
 }
 
 export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templates }: ConvocacaoClientProps) {
+  const { showAlert } = useSystemModal()
   const [solicitacoes, setSolicitacoes] = useState(initialSols)
   const [activeTab, setActiveTab] = useState<'ALL' | 'EM_CONVOCACAO' | 'SEM_CONTATO'>('ALL')
   const [selectedSol, setSelectedSol] = useState<any | null>(null)
@@ -21,6 +24,7 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
   const [outcome, setOutcome] = useState('SUCESSO_CONFIRMOU')
   const [obs, setObs] = useState('')
   const [saving, setSaving] = useState(false)
+  const [sendingWa, setSendingWa] = useState(false)
 
   // Controle de templates e customização de WhatsApp
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
@@ -97,33 +101,94 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
         }))
       }
 
-      alert('Contato registrado e lista atualizada!')
+      await showAlert({
+        title: 'Contato Registrado',
+        message: 'O log de contato foi gravado com sucesso e a lista foi atualizada.',
+        type: 'success'
+      })
       setSelectedSol(null)
       setObs('')
     } catch (err: any) {
-      alert(err.message || 'Erro ao registrar contato.')
+      await showAlert({
+        title: 'Erro ao Registrar Contato',
+        message: err.message || 'Erro ao registrar contato.',
+        type: 'error'
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleTriggerWhatsApp = () => {
+  const handleSendDirectWhatsApp = async () => {
     if (!selectedSol) return
     const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
     if (!tel) {
-      alert('Paciente não possui WhatsApp/Telefone cadastrado.')
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        type: 'warning'
+      })
+      return
+    }
+
+    const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação de Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda esta mensagem.`
+
+    setSendingWa(true)
+    try {
+      const res = await sendWhatsAppMessageAction({ phone: tel, message: text })
+
+      if (res.success) {
+        await showAlert({
+          title: 'WhatsApp Enviado',
+          message: `Mensagem enviada com sucesso para ${res.phoneUsed || tel} via AstraCalls API!`,
+          type: 'success'
+        })
+        // Registrar log de contato automaticamente
+        await createContactLog(
+          selectedSol.cod_solicitacao,
+          'WHATSAPP',
+          'SUCESSO_CONFIRMOU',
+          res.phoneUsed || tel,
+          `WhatsApp enviado via AstraCalls API:\n"${text}"`
+        )
+        setOutcome('SUCESSO_CONFIRMOU')
+        setObs(`WhatsApp enviado via AstraCalls API:\n"${text}"`)
+      } else {
+        await showAlert({
+          title: 'Falha no Disparo API',
+          message: `Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`,
+          type: 'error'
+        })
+      }
+    } catch (err: any) {
+      await showAlert({
+        title: 'Erro na API WhatsApp',
+        message: `Erro ao comunicar com a API do WhatsApp: ${err.message}`,
+        type: 'error'
+      })
+    } finally {
+      setSendingWa(false)
+    }
+  }
+
+  const handleTriggerWhatsAppWeb = async () => {
+    if (!selectedSol) return
+    const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
+    if (!tel) {
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        type: 'warning'
+      })
       return
     }
 
     const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação de Saúde de Marabá sobre seu procedimento de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda esta mensagem.`
-
-    const cleanPhone = tel.replace(/\D/g, '')
-    const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(text)}`
+    const url = await getWhatsAppWebUrl(tel, text)
     window.open(url, '_blank')
 
-    // Prefill outcomes
     setOutcome('SUCESSO_CONFIRMOU')
-    setObs(`WhatsApp aberto com template enviado:\n"${text}"`)
+    setObs(`WhatsApp Web aberto manualmente:\n"${text}"`)
   }
 
   const getRiskColor = (risco: number) => {
@@ -304,14 +369,26 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleTriggerWhatsApp}
-                        className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-emerald-500/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-600"
-                      >
-                        <Phone className="h-4 w-4" />
-                        <span>Chamar no WhatsApp</span>
-                      </button>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleSendDirectWhatsApp}
+                          disabled={sendingWa}
+                          className="flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md shadow-emerald-600/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-500 disabled:opacity-50"
+                        >
+                          {sendingWa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                          <span>{sendingWa ? 'Enviando...' : 'Enviar API Direto'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleTriggerWhatsAppWeb}
+                          className="flex items-center justify-center gap-2 py-2.5 bg-background/80 hover:bg-accent/20 border border-border/50 text-foreground rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-[0.99] transition-all cursor-pointer"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>WhatsApp Web</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

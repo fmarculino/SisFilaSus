@@ -8,9 +8,11 @@ import { Portal } from '@/components/ui/Portal'
 import { 
   Search, Filter, Eye, Phone, MessageSquare, Plus, X, 
   Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
-  ArrowUpDown
+  ArrowUpDown, Send, ExternalLink, Loader2
 } from 'lucide-react'
 import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus, encaminharParaPrestador } from './actions'
+import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 
 const formatPhone = (value: string) => {
@@ -73,6 +75,7 @@ export function FilaClient({
   anosLimpezaFila = 5,
   appliedFilters,
 }: FilaClientProps) {
+  const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -307,9 +310,17 @@ export function FilaClient({
           telefone_2: tel2
         }
       })
-      alert('Telefones atualizados com sucesso!')
+      await showAlert({
+        title: 'Telefones Atualizados',
+        message: 'Os números de telefone do paciente foram salvos com sucesso.',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar telefones.')
+      await showAlert({
+        title: 'Erro ao Salvar Telefone',
+        message: err.message || 'Erro ao atualizar telefones.',
+        type: 'error'
+      })
     } finally {
       setSavingPhone(false)
     }
@@ -334,9 +345,17 @@ export function FilaClient({
         contactOutcome === 'SUCESSO_RECUSOU' ? 'CONVOCADO_RECUSOU' :
         contactOutcome === 'SEM_RESPOSTA' ? 'SEM_CONTATO' : selectedSol.status_interno
       
-      alert('Contato adicionado e status atualizado!')
+      await showAlert({
+        title: 'Contato Registrado',
+        message: 'Log de contato adicionado e status do paciente atualizado com sucesso.',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao registrar contato.')
+      await showAlert({
+        title: 'Erro ao Registrar Contato',
+        message: err.message || 'Erro ao registrar contato.',
+        type: 'error'
+      })
     } finally {
       setSavingContact(false)
     }
@@ -346,7 +365,11 @@ export function FilaClient({
     e.preventDefault()
     if (!selectedSol) return
     if (!moveJustification.trim()) {
-      alert('Justificativa é obrigatória!')
+      await showAlert({
+        title: 'Justificativa Obrigatória',
+        message: 'Por favor, descreva a justificativa clínica/operacional para a movimentação.',
+        type: 'warning'
+      })
       return
     }
 
@@ -362,12 +385,20 @@ export function FilaClient({
 
       await proposeMovement(selectedSol.cod_solicitacao, moveType, moveJustification, valorNovo)
       
-      alert('Solicitação de movimentação enviada com sucesso e pendente de aprovação!')
+      await showAlert({
+        title: 'Movimentação Proposta',
+        message: 'Solicitação de movimentação enviada com sucesso e pendente de aprovação!',
+        type: 'success'
+      })
       setMoveJustification('')
       setNewRisco('')
       setNewPos('')
     } catch (err: any) {
-      alert(err.message || 'Erro ao propor movimentação.')
+      await showAlert({
+        title: 'Erro ao Propor Movimentação',
+        message: err.message || 'Erro ao propor movimentação.',
+        type: 'error'
+      })
     } finally {
       setSavingMovement(false)
     }
@@ -377,14 +408,24 @@ export function FilaClient({
     e.preventDefault()
     if (!selectedSol) return
     if (!selectedPrestadorId) {
-      alert('Selecione um hospital prestador.')
+      await showAlert({
+        title: 'Prestador Não Selecionado',
+        message: 'Selecione um hospital ou clínica prestadora.',
+        type: 'warning'
+      })
       return
     }
     
     const nextStatus = dataInternaInput && dataInternaInput.trim().length > 0 ? 'INTERNADO' : 'ENCAMINHADO'
     const statusLabel = nextStatus === 'INTERNADO' ? 'Internado' : 'Encaminhado Hospital/Clínica'
     
-    if (!confirm(`Confirmar encaminhamento? O status será alterado para ${statusLabel}.`)) return
+    const confirmed = await showConfirm({
+      title: 'Confirmar Encaminhamento',
+      message: `Deseja confirmar o encaminhamento do paciente? O status operacional será alterado para "${statusLabel}".`,
+      confirmText: 'Confirmar Encaminhamento',
+      variant: 'primary'
+    })
+    if (!confirmed) return
 
     setSavingEncaminhamento(true)
     try {
@@ -402,28 +443,86 @@ export function FilaClient({
         dataEncaminhamento: new Date().toISOString().split('T')[0],
         dataInternacao: dataInternaInput || null,
       }))
-      alert('Paciente encaminhado com sucesso!')
+      await showAlert({
+        title: 'Encaminhamento Concluído',
+        message: 'Paciente encaminhado ao prestador com sucesso!',
+        type: 'success'
+      })
     } catch (err: any) {
-      alert(err.message || 'Erro ao encaminhar paciente.')
+      await showAlert({
+        title: 'Erro ao Encaminhar',
+        message: err.message || 'Erro ao encaminhar paciente.',
+        type: 'error'
+      })
     } finally {
       setSavingEncaminhamento(false)
     }
   }
 
   // Geração de Mensagem via WhatsApp
-  const handleOpenWhatsApp = () => {
+  const [sendingWa, setSendingWa] = useState(false)
+
+  const handleSendDirectWhatsApp = async () => {
+    if (!selectedSol || !tel1) {
+      await showAlert({
+        title: 'Telefone Ausente',
+        message: 'O paciente selecionado não possui WhatsApp/Telefone cadastrado.',
+        type: 'warning'
+      })
+      return
+    }
+
+    const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação da Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda a esta mensagem.`
+
+    setSendingWa(true)
+    try {
+      const res = await sendWhatsAppMessageAction({ phone: tel1, message: text })
+
+      if (res.success) {
+        await showAlert({
+          title: 'WhatsApp Enviado',
+          message: `Mensagem enviada com sucesso para ${res.phoneUsed || tel1} via AstraCalls API!`,
+          type: 'success'
+        })
+        // Log de contato automático
+        await createContactLog(
+          selectedSol.cod_solicitacao,
+          'WHATSAPP',
+          'SUCESSO_CONFIRMOU',
+          res.phoneUsed || tel1,
+          `WhatsApp enviado via AstraCalls API:\n"${text}"`
+        )
+        const freshData = await fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
+        setExtraData(freshData)
+      } else {
+        await showAlert({
+          title: 'Falha no Envio API',
+          message: `Falha no envio via API AstraCalls: ${res.error}\n\nUtilize o botão "WhatsApp Web (Fallback)" para abrir e enviar manualmente.`,
+          type: 'error'
+        })
+      }
+    } catch (err: any) {
+      await showAlert({
+        title: 'Erro na API WhatsApp',
+        message: `Erro ao comunicar com a API do WhatsApp: ${err.message}`,
+        type: 'error'
+      })
+    } finally {
+      setSendingWa(false)
+    }
+  }
+
+  const handleOpenWhatsAppWeb = async () => {
     if (!selectedSol || !tel1) return
     
     const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação da Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda a esta mensagem.`
 
-    const cleanPhone = tel1.replace(/\D/g, '')
-    const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(text)}`
+    const url = await getWhatsAppWebUrl(tel1, text)
     window.open(url, '_blank')
 
-    // Prefill log de contato automático para facilitar a vida do operador
     setContactType('WHATSAPP')
     setContactOutcome('SUCESSO_CONFIRMOU')
-    setContactObs(`WhatsApp aberto com template enviado:\n"${text}"`)
+    setContactObs(`WhatsApp Web aberto manualmente:\n"${text}"`)
   }
 
   const getAge = (birthDateString: string | null) => {
@@ -973,13 +1072,27 @@ export function FilaClient({
                           value={selectedSol.status_interno}
                           onChange={async (e) => {
                             const nextStatus = e.target.value
-                            if (confirm(`Deseja alterar o status desta solicitação para "${nextStatus}"?`)) {
+                            const confirmed = await showConfirm({
+                              title: 'Alterar Status Interno',
+                              message: `Deseja alterar o status desta solicitação para "${nextStatus}"?`,
+                              confirmText: 'Alterar Status',
+                              variant: 'primary'
+                            })
+                            if (confirmed) {
                               try {
                                 await updateSolicitacaoStatus(selectedSol.cod_solicitacao, nextStatus)
                                 setSelectedSol({ ...selectedSol, status_interno: nextStatus })
-                                alert('Status atualizado com sucesso!')
+                                await showAlert({
+                                  title: 'Status Atualizado',
+                                  message: 'Status operacional alterado com sucesso!',
+                                  type: 'success'
+                                })
                               } catch (err: any) {
-                                alert(err.message || 'Erro ao atualizar status')
+                                await showAlert({
+                                  title: 'Erro ao Atualizar Status',
+                                  message: err.message || 'Erro ao atualizar status',
+                                  type: 'error'
+                                })
                               }
                             }
                           }}
@@ -1145,14 +1258,26 @@ export function FilaClient({
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleOpenWhatsApp}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-500/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-600"
-                      >
-                        <Phone className="h-4 w-4" />
-                        <span>Chamar no WhatsApp</span>
-                      </button>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleSendDirectWhatsApp}
+                          disabled={sendingWa}
+                          className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-600/20 active:scale-[0.99] transition-all cursor-pointer border border-emerald-500 disabled:opacity-50"
+                        >
+                          {sendingWa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          <span>{sendingWa ? 'Enviando...' : 'Enviar API Direto'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenWhatsAppWeb}
+                          className="flex items-center justify-center gap-2 py-3 bg-background/80 hover:bg-accent/20 border border-border/50 text-foreground rounded-xl text-xs font-black uppercase tracking-widest active:scale-[0.99] transition-all cursor-pointer"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          <span>WhatsApp Web</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

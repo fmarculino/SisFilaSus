@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { ConfiguracoesClient } from './ConfiguracoesClient'
+import { getCommunicationConfig } from '@/lib/communication'
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient()
@@ -40,16 +41,19 @@ export default async function ConfiguracoesPage() {
     omitir_fora_sisreg_padrao: true
   }
 
-  // Se existir a linha no banco, mescla com os padrões para garantir retrocompatibilidade de campos
   const config = configRow?.valor 
     ? { ...defaultConfig, ...(configRow.valor as any) }
     : defaultConfig
+
+  // Buscar configurações de comunicação (DB + env fallbacks)
+  const communicationConfig = await getCommunicationConfig()
 
   return (
     <ConfiguracoesClient
       role={role}
       email={user.email || ''}
       config={config}
+      communicationConfig={communicationConfig}
     />
   )
 }

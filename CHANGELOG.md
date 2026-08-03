@@ -4,7 +4,29 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.6.5-beta] — 2026-06-10 (Atual)
+## [0.7.0] — 2026-08-03 (Atual)
+### Adicionado
+* **Fluxo de Recuperação de Senha (Supabase Auth SSR)**:
+  * Ativada a redefinição de palavra-chave diretamente pela tela de entrada através da rota `/esqueci-a-senha`.
+  * Implementado o handler de callback `/auth/callback` para processar a troca do token de recuperação por uma sessão autenticada.
+  * Tela de redefinição de senha `/auth/update-password` integrada ao fluxo com validação e feedback amigável.
+* **Motor de Comunicação Híbrido (`src/lib/communication.ts`)**:
+  * **E-mail Transacional (SMTP Nodemailer)**: Suporte para disparo de e-mails de notificação e testes usando infraestrutura SMTP com resolução de credenciais priorizando banco de dados com fallback em variáveis de ambiente.
+  * **API WhatsApp AstraCalls**: Integração com a API REST do AstraCalls (`POST /message/text`) com algoritmo de normalização automática do 9º dígito para DDDs do Brasil $\ge 31$ (disparando primeiro em 12 dígitos e fallback de 13 dígitos).
+  * **Envio Direto de Mensagens**: Adicionada opção de disparo em 1 clique ("Enviar API Direto") nos módulos de **Convocação de Fila** e **Fila de Espera**, gerando automaticamente o histórico de contatos na tabela `contatos`.
+  * **Fallback Manual**: Botão de envio via WhatsApp Web preservado como contingência 100% à prova de falhas.
+* **Gerenciamento de Comunicação no Painel de Configurações (`/dashboard/configuracoes`)**:
+  * Adicionadas as abas **E-mail Transacional (SMTP)** e **WhatsApp (AstraCalls)** para gestão de credenciais e alternância de status ativo/inativo.
+  * Adicionados botões para **Testar Conexão SMTP** e **Testar Disparo WhatsApp API** em tempo real com modal de verificação.
+
+* **Sistema Global de Modais e Alertas (`SystemModalProvider`)**:
+  * Substituídos 100% dos popups nativos do navegador (`alert` e `confirm`) por modais nativos do sistema em React (`src/components/ui/SystemModal.tsx`).
+  * Design Bento consistente com o layout do sistema, animações fluidas, suporte a dark/light mode, ícones de status (`success`, `error`, `warning`, `info`) e promessas assíncronas para confirmações.
+  * Aplicado em todos os módulos operacionais: Fila de Espera, Convocação, Usuários, Prestadores, Pacientes, Modelos de Mensagens, Movimentações, Sincronização e Configurações.
+
+---
+
+## [0.6.5-beta] — 2026-06-10
 ### Adicionado
 * **Filtro por Unidade Solicitante**:
   * Adicionado suporte para filtrar a Fila de Espera (`/dashboard/fila`) pela unidade solicitante (UBS, Hospitais, Postinhos).

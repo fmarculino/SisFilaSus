@@ -7,6 +7,7 @@ import {
   HelpCircle, RefreshCw, ArrowUpRight
 } from 'lucide-react'
 import { resolveDivergenciaAction } from './actions'
+import { useSystemModal } from '@/components/ui/SystemModal'
 
 interface Divergencia {
   id: string
@@ -40,27 +41,36 @@ export function SincronizacaoClient({
   email,
   initialDivergencias
 }: SincronizacaoClientProps) {
+  const { showAlert } = useSystemModal()
   const [divergencias, setDivergencias] = useState<Divergencia[]>(initialDivergencias)
   const [search, setSearch] = useState('')
   const [filterTipo, setFilterTipo] = useState('')
   const [resolvingId, setResolvingId] = useState<string | null>(null)
 
   const handleResolve = async (id: string, codSol: number) => {
-    if (!confirm(`Confirmar que a solicitação Nº ${codSol} foi atualizada no SISREG III e marcar esta divergência como resolvida?`)) {
-      return
-    }
-
     setResolvingId(id)
     try {
       const res = await resolveDivergenciaAction(id)
       if (res.success) {
-        alert('Divergência marcada como resolvida com sucesso!')
+        await showAlert({
+          title: 'Sucesso',
+          message: 'Divergência marcada como resolvida com sucesso!',
+          type: 'success'
+        })
         setDivergencias(prev => prev.filter(d => d.id !== id))
       } else {
-        alert(res.error || 'Erro ao resolver divergência.')
+        await showAlert({
+          title: 'Erro',
+          message: res.error || 'Erro ao resolver divergência.',
+          type: 'error'
+        })
       }
     } catch (err: any) {
-      alert(err.message || 'Erro inesperado ao resolver.')
+      await showAlert({
+        title: 'Erro',
+        message: err.message || 'Erro inesperado ao resolver.',
+        type: 'error'
+      })
     } finally {
       setResolvingId(null)
     }

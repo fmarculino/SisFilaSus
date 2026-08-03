@@ -82,7 +82,7 @@ export default async function LoginPage({
             </div>
 
             <div className="flex items-center justify-end px-1">
-              <Link href="/forgot-password" title="password-recovery" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
+              <Link href="/esqueci-a-senha" title="password-recovery" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
                 Recuperar Acesso
               </Link>
             </div>
