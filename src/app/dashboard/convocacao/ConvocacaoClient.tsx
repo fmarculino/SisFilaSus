@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
-import { Phone, MessageSquare, Check, X, Calendar, User, FileText, AlertCircle, Send, ExternalLink, Loader2 } from 'lucide-react'
+import { Phone, MessageSquare, Check, X, Calendar, User, FileText, AlertCircle, Send, ExternalLink, Loader2, Star } from 'lucide-react'
 import { createContactLog, fetchSolicitacaoExtraData } from '../fila/actions'
 import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
 import { useSystemModal } from '@/components/ui/SystemModal'
+import { PhoneBadge, type PhoneStatus, type PhoneType } from '@/components/ui/PhoneBadge'
 
 interface ConvocacaoClientProps {
   role: string
@@ -69,6 +70,21 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
     setCustomMsgText(processedText)
   }, [selectedTemplateId, selectedSol, templates])
 
+  // Helper: obter telefones ativos do paciente
+  const getActivePhones = (sol: any) => {
+    const tels = sol?.pacientes?.pacientes_telefones || []
+    return tels
+      .filter((t: any) => t.status === 'ATIVO' && t.numero)
+      .sort((a: any, b: any) => a.prioridade - b.prioridade)
+  }
+
+  const getFirstActivePhone = (sol: any) => {
+    const active = getActivePhones(sol)
+    if (active.length > 0) return active[0].numero
+    // Fallback para campos legados
+    return sol?.pacientes?.telefone_1 || sol?.pacientes?.telefone_2 || ''
+  }
+
   // Filtrar lista com base na Tab ativa
   const filteredSols = solicitacoes.filter(s => {
     if (activeTab === 'EM_CONVOCACAO') return s.status_interno === 'EM_CONVOCACAO'
@@ -82,8 +98,8 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
 
     setSaving(true)
     try {
-      const activePhone = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2 || 'N/I'
-      await createContactLog(selectedSol.cod_solicitacao, 'WHATSAPP', outcome, activePhone, obs)
+      const activePhone = getFirstActivePhone(selectedSol)
+      await createContactLog(selectedSol.cod_solicitacao, 'WHATSAPP', outcome, activePhone || 'N/I', obs)
       
       // Remover da lista de pendentes local se o resultado indica desfecho final
       if (['SUCESSO_CONFIRMOU', 'SUCESSO_RECUSOU'].includes(outcome)) {
@@ -121,11 +137,11 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
 
   const handleSendDirectWhatsApp = async () => {
     if (!selectedSol) return
-    const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
+    const tel = getFirstActivePhone(selectedSol)
     if (!tel) {
       await showAlert({
         title: 'Telefone Ausente',
-        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        message: 'O paciente selecionado não possui telefone/WhatsApp ativo cadastrado.',
         type: 'warning'
       })
       return
@@ -173,11 +189,11 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
 
   const handleTriggerWhatsAppWeb = async () => {
     if (!selectedSol) return
-    const tel = selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2
+    const tel = getFirstActivePhone(selectedSol)
     if (!tel) {
       await showAlert({
         title: 'Telefone Ausente',
-        message: 'O paciente selecionado não possui telefone/WhatsApp cadastrado.',
+        message: 'O paciente selecionado não possui telefone/WhatsApp ativo cadastrado.',
         type: 'warning'
       })
       return
@@ -327,7 +343,29 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
                 <div>
                   <span className="text-[9px] font-black uppercase tracking-widest text-primary">Registrar Contato Rápido</span>
                   <h4 className="text-base font-black text-foreground mt-1 uppercase truncate">{selectedSol.pacientes.nome_usuario}</h4>
-                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Telefone: {selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2 || 'N/I'}</p>
+                  {/* Lista de telefones com badges */}
+                  {(() => {
+                    const activePhones = getActivePhones(selectedSol)
+                    if (activePhones.length > 0) {
+                      return (
+                        <div className="mt-1.5 space-y-1">
+                          {activePhones.slice(0, 3).map((t: any, i: number) => (
+                            <div key={t.id} className="flex items-center gap-1.5">
+                              {i === 0 && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {t.numero.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')}
+                              </span>
+                              <PhoneBadge status={t.status} size="sm" />
+                              {t.nome_contato && <span className="text-[8px] text-muted-foreground/50">(Recado: {t.nome_contato})</span>}
+                            </div>
+                          ))}
+                          {activePhones.length > 3 && <span className="text-[8px] text-muted-foreground/40">+{activePhones.length - 3} mais</span>}
+                        </div>
+                      )
+                    } else {
+                      return <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Telefone: N/I</p>
+                    }
+                  })()}
                 </div>
 
                 {/* Busca Ativa - WhatsApp */}
@@ -337,10 +375,10 @@ export function ConvocacaoClient({ role, email, solicitacoes: initialSols, templ
                     <span className="text-[9px] font-black uppercase tracking-widest">Busca Ativa — WhatsApp</span>
                   </div>
 
-                  {!(selectedSol.pacientes.telefone_1 || selectedSol.pacientes.telefone_2) ? (
+                  {getActivePhones(selectedSol).length === 0 ? (
                     <div className="flex items-center gap-2 p-2 bg-amber-500/5 text-amber-500 rounded-xl text-[10px] font-bold leading-relaxed border border-amber-500/20">
                       <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>Paciente sem telefone cadastrado.</span>
+                      <span>Paciente sem telefone ativo cadastrado.</span>
                     </div>
                   ) : (
                     <div className="space-y-3">

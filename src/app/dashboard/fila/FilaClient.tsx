@@ -8,11 +8,14 @@ import { Portal } from '@/components/ui/Portal'
 import { 
   Search, Filter, Eye, Phone, MessageSquare, Plus, X, 
   Activity, ArrowUpRight, Calendar, User, FileText, CheckCircle2, AlertTriangle,
-  ArrowUpDown, Send, ExternalLink, Loader2
+  ArrowUpDown, Send, ExternalLink, Loader2, Star
 } from 'lucide-react'
 import { fetchSolicitacaoExtraData, updatePatientPhone, createContactLog, proposeMovement, updateSolicitacaoStatus, encaminharParaPrestador } from './actions'
 import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
 import { useSystemModal } from '@/components/ui/SystemModal'
+import { PhoneManager, type TelefoneData } from '@/components/ui/PhoneManager'
+import { PhoneBadge } from '@/components/ui/PhoneBadge'
+import { syncPacienteTelefonesAction } from '@/app/dashboard/pacientes/telefone-actions'
 
 
 const formatPhone = (value: string) => {
@@ -132,12 +135,14 @@ export function FilaClient({
     hospitalEncaminhado: any | null
     dataEncaminhamento: string | null
     dataInternacao: string | null
-  }>({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null })
+    telefones: any[]
+  }>({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null, telefones: [] })
 
-  // Edição do Telefone do Paciente
-  const [tel1, setTel1] = useState('')
-  const [tel2, setTel2] = useState('')
+  // Edição do Telefone do Paciente (novo sistema multi-telefone)
+  const [telefones, setTelefones] = useState<TelefoneData[]>([])
   const [savingPhone, setSavingPhone] = useState(false)
+  // Telefone selecionado para WhatsApp (ID do telefone ativo)
+  const [selectedPhoneId, setSelectedPhoneId] = useState('')
 
   // Registrar Novo Contato
   const [contactType, setContactType] = useState<'WHATSAPP' | 'LIGACAO' | 'VISITA' | 'SMS'>('WHATSAPP')
@@ -239,10 +244,10 @@ export function FilaClient({
   // Carregar dados extras ao selecionar solicitação
   useEffect(() => {
     if (selectedSol) {
-      setTel1(formatPhone(selectedSol.pacientes?.telefone_1 || ''))
-      setTel2(formatPhone(selectedSol.pacientes?.telefone_2 || ''))
       setDrawerLoading(true)
-      setExtraData({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null })
+      setExtraData({ snapshots: [], contatos: [], templates: [], prestadores: [], hospitalEncaminhado: null, dataEncaminhamento: null, dataInternacao: null, telefones: [] })
+      setTelefones([])
+      setSelectedPhoneId('')
       setSelectedTemplateId('')
       setSelectedPrestadorId('')
       setDataInternaInput('')
@@ -250,6 +255,23 @@ export function FilaClient({
       fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
         .then(res => {
           setExtraData(res)
+          // Mapear telefones para o PhoneManager
+          const mappedPhones: TelefoneData[] = (res.telefones || []).map((t: any) => ({
+            id: t.id,
+            numero: t.numero,
+            tipo: t.tipo,
+            status: t.status,
+            prioridade: t.prioridade,
+            nome_contato: t.nome_contato || '',
+            parentesco: t.parentesco || '',
+            observacoes: t.observacoes || '',
+          }))
+          setTelefones(mappedPhones)
+          // Selecionar automaticamente o primeiro telefone ativo com WhatsApp
+          const firstActive = mappedPhones.find(t => t.status === 'ATIVO' && t.tipo === 'CELULAR_WHATSAPP')
+            || mappedPhones.find(t => t.status === 'ATIVO' && t.tipo === 'CELULAR')
+            || mappedPhones.find(t => t.status === 'ATIVO')
+          if (firstActive?.id) setSelectedPhoneId(firstActive.id)
         })
         .finally(() => {
           setDrawerLoading(false)
@@ -296,28 +318,55 @@ export function FilaClient({
     setCustomMsgText(processedText)
   }, [selectedTemplateId, selectedSol, extraData.templates])
 
+  // Helper: obter o telefone selecionado para WhatsApp
+  const getSelectedPhone = () => {
+    if (selectedPhoneId) {
+      const found = telefones.find(t => t.id === selectedPhoneId)
+      if (found && found.numero) return found.numero.replace(/\D/g, '')
+    }
+    // Fallback: primeiro telefone ativo
+    const first = telefones
+      .filter(t => t.status === 'ATIVO' && t.numero.replace(/\D/g, ''))
+      .sort((a, b) => a.prioridade - b.prioridade)[0]
+    return first?.numero.replace(/\D/g, '') || ''
+  }
+
   const handleSavePhone = async () => {
     if (!selectedSol) return
     setSavingPhone(true)
     try {
-      await updatePatientPhone(selectedSol.pacientes.id, tel1, tel2)
-      // Atualizar objeto local
+      const res = await syncPacienteTelefonesAction(selectedSol.pacientes.id, telefones)
+      if (!res.success) throw new Error(res.error)
+
+      // Atualizar campos legados no objeto local
+      const ativosOrdenados = telefones
+        .filter(t => t.status === 'ATIVO' && t.numero.replace(/\D/g, ''))
+        .sort((a, b) => a.prioridade - b.prioridade)
       setSelectedSol({
         ...selectedSol,
         pacientes: {
           ...selectedSol.pacientes,
-          telefone_1: tel1,
-          telefone_2: tel2
+          telefone_1: ativosOrdenados[0]?.numero.replace(/\D/g, '') || '',
+          telefone_2: ativosOrdenados[1]?.numero.replace(/\D/g, '') || '',
         }
       })
       await showAlert({
         title: 'Telefones Atualizados',
-        message: 'Os números de telefone do paciente foram salvos com sucesso.',
+        message: 'Os telefones do paciente foram salvos com sucesso.',
         type: 'success'
       })
+      // Recarregar os telefones do banco para obter os IDs corretos
+      const freshData = await fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
+      setExtraData(freshData)
+      const refreshedPhones: TelefoneData[] = (freshData.telefones || []).map((t: any) => ({
+        id: t.id, numero: t.numero, tipo: t.tipo, status: t.status,
+        prioridade: t.prioridade, nome_contato: t.nome_contato || '',
+        parentesco: t.parentesco || '', observacoes: t.observacoes || '',
+      }))
+      setTelefones(refreshedPhones)
     } catch (err: any) {
       await showAlert({
-        title: 'Erro ao Salvar Telefone',
+        title: 'Erro ao Salvar Telefones',
         message: err.message || 'Erro ao atualizar telefones.',
         type: 'error'
       })
@@ -325,14 +374,13 @@ export function FilaClient({
       setSavingPhone(false)
     }
   }
-
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedSol) return
     setSavingContact(true)
     try {
-      const activePhone = contactType === 'WHATSAPP' ? tel1 : (tel1 || tel2 || 'N/I')
-      await createContactLog(selectedSol.cod_solicitacao, contactType, contactOutcome, activePhone, contactObs)
+      const phoneUsed = getSelectedPhone() || (telefones[0]?.numero?.replace(/\D/g, '') || 'N/I')
+      await createContactLog(selectedSol.cod_solicitacao, contactType, contactOutcome, phoneUsed, contactObs)
       
       // Limpar campos e recarregar dados do drawer
       setContactObs('')
@@ -463,10 +511,11 @@ export function FilaClient({
   const [sendingWa, setSendingWa] = useState(false)
 
   const handleSendDirectWhatsApp = async () => {
-    if (!selectedSol || !tel1) {
+    const phoneToUse = getSelectedPhone()
+    if (!selectedSol || !phoneToUse) {
       await showAlert({
         title: 'Telefone Ausente',
-        message: 'O paciente selecionado não possui WhatsApp/Telefone cadastrado.',
+        message: 'O paciente selecionado não possui WhatsApp/Telefone ativo cadastrado.',
         type: 'warning'
       })
       return
@@ -476,12 +525,12 @@ export function FilaClient({
 
     setSendingWa(true)
     try {
-      const res = await sendWhatsAppMessageAction({ phone: tel1, message: text })
+      const res = await sendWhatsAppMessageAction({ phone: phoneToUse, message: text })
 
       if (res.success) {
         await showAlert({
           title: 'WhatsApp Enviado',
-          message: `Mensagem enviada com sucesso para ${res.phoneUsed || tel1} via AstraCalls API!`,
+          message: `Mensagem enviada com sucesso para ${res.phoneUsed || phoneToUse} via AstraCalls API!`,
           type: 'success'
         })
         // Log de contato automático
@@ -489,7 +538,7 @@ export function FilaClient({
           selectedSol.cod_solicitacao,
           'WHATSAPP',
           'SUCESSO_CONFIRMOU',
-          res.phoneUsed || tel1,
+          res.phoneUsed || phoneToUse,
           `WhatsApp enviado via AstraCalls API:\n"${text}"`
         )
         const freshData = await fetchSolicitacaoExtraData(selectedSol.cod_solicitacao)
@@ -513,11 +562,12 @@ export function FilaClient({
   }
 
   const handleOpenWhatsAppWeb = async () => {
-    if (!selectedSol || !tel1) return
+    const phoneToUse = getSelectedPhone()
+    if (!selectedSol || !phoneToUse) return
     
     const text = customMsgText || `Olá, ${selectedSol.pacientes.nome_usuario}. Entramos em contato da Regulação da Saúde de Marabá referente à sua solicitação de ${selectedSol.procedimentos.desc_sigtap}. Por favor, responda a esta mensagem.`
 
-    const url = await getWhatsAppWebUrl(tel1, text)
+    const url = await getWhatsAppWebUrl(phoneToUse, text)
     window.open(url, '_blank')
 
     setContactType('WHATSAPP')
@@ -1029,31 +1079,13 @@ export function FilaClient({
                     </div>
                   </div>
 
-                  {/* Edição de telefones */}
+                  {/* Edição de telefones (Multi-telefone) */}
                   <div className="border-t border-border/20 pt-4 space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Telefones para Contato</span>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-muted-foreground uppercase">WhatsApp / Celular 1</label>
-                        <input
-                          type="text"
-                          value={tel1}
-                          onChange={(e) => setTel1(formatPhone(e.target.value))}
-                          className="block w-full rounded-xl border border-border/50 bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all font-mono"
-                          placeholder="(94) 9XXXX-XXXX"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-muted-foreground uppercase">Celular 2 (Recado)</label>
-                        <input
-                          type="text"
-                          value={tel2}
-                          onChange={(e) => setTel2(formatPhone(e.target.value))}
-                          className="block w-full rounded-xl border border-border/50 bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary transition-all font-mono"
-                          placeholder="(94) 9XXXX-XXXX"
-                        />
-                      </div>
-                    </div>
+                    <PhoneManager
+                      telefones={telefones}
+                      onChange={setTelefones}
+                      compact
+                    />
                     <div className="flex justify-end">
                       <button
                         type="button"
@@ -1226,10 +1258,10 @@ export function FilaClient({
                     <span className="text-[10px] font-black uppercase tracking-widest">Busca Ativa — WhatsApp</span>
                   </div>
 
-                  {!tel1 ? (
+                  {telefones.filter(t => t.status === 'ATIVO' && t.numero.replace(/\D/g, '')).length === 0 ? (
                     <div className="flex items-center gap-2 p-3 bg-amber-500/5 text-amber-500 rounded-xl text-xs font-bold leading-relaxed border border-amber-500/20">
                       <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
-                      <span>Cadastre o Telefone 1 acima para liberar a convocação via WhatsApp.</span>
+                      <span>Cadastre pelo menos um telefone ativo acima para liberar a convocação via WhatsApp.</span>
                     </div>
                   ) : (
                     <div className="space-y-4">

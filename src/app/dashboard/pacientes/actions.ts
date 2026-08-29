@@ -81,20 +81,26 @@ export async function savePacienteAction(
       console.error('Erro ao atualizar paciente:', updateError.message)
       return { success: false, error: updateError.message }
     }
+
+    revalidatePath('/dashboard/pacientes')
+    revalidatePath('/dashboard/fila')
+    return { success: true, pacienteId: id }
   } else {
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from('pacientes')
       .insert(payload)
+      .select('id')
+      .single()
 
     if (insertError) {
       console.error('Erro ao cadastrar paciente:', insertError.message)
       return { success: false, error: insertError.message }
     }
-  }
 
-  revalidatePath('/dashboard/pacientes')
-  revalidatePath('/dashboard/fila')
-  return { success: true }
+    revalidatePath('/dashboard/pacientes')
+    revalidatePath('/dashboard/fila')
+    return { success: true, pacienteId: inserted?.id }
+  }
 }
 
 export async function deletePacienteAction(id: string) {

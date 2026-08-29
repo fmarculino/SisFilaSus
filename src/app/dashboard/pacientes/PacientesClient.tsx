@@ -5,12 +5,26 @@ import { useRouter, usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
 import { Portal } from '@/components/ui/Portal'
+import { PhoneBadge, type PhoneStatus, type PhoneType } from '@/components/ui/PhoneBadge'
+import { PhoneManager, type TelefoneData } from '@/components/ui/PhoneManager'
 import { 
   Plus, Edit2, Trash2, X, User, Search, Filter, 
-  Phone, Calendar, AlertCircle, FileText
+  Phone, Calendar, AlertCircle, FileText, Star
 } from 'lucide-react'
 import { savePacienteAction, deletePacienteAction } from './actions'
+import { syncPacienteTelefonesAction, getPacienteTelefonesAction } from './telefone-actions'
 import { useSystemModal } from '@/components/ui/SystemModal'
+
+interface TelefoneDB {
+  id: string
+  numero: string
+  tipo: PhoneType
+  status: PhoneStatus
+  prioridade: number
+  nome_contato: string | null
+  parentesco: string | null
+  observacoes: string | null
+}
 
 interface Paciente {
   id: string
@@ -25,6 +39,7 @@ interface Paciente {
   endereco: string | null
   municipio_origem: string | null
   observacoes: string | null
+  pacientes_telefones?: TelefoneDB[]
 }
 
 interface PacientesClientProps {
@@ -79,12 +94,14 @@ export function PacientesClient({
   const [nascimento, setNascimento] = useState('')
   const [sexo, setSexo] = useState('MASCULINO')
   const [mae, setMae] = useState('')
-  const [tel1, setTel1] = useState('')
-  const [tel2, setTel2] = useState('')
   const [endereco, setEndereco] = useState('')
   const [municipio, setMunicipio] = useState('MARABA')
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Telefones (novo sistema multi-telefone)
+  const [telefones, setTelefones] = useState<TelefoneData[]>([])
+  const [loadingPhones, setLoadingPhones] = useState(false)
 
   // Auxiliares de Formatação e Máscaras
   const maskCpf = (value: string) => {
@@ -118,15 +135,14 @@ export function PacientesClient({
     setNascimento('')
     setSexo('MASCULINO')
     setMae('')
-    setTel1('')
-    setTel2('')
     setEndereco('')
     setMunicipio('MARABA')
     setObservacoes('')
+    setTelefones([])
     setModalOpen(true)
   }
 
-  const handleOpenEdit = (p: Paciente) => {
+  const handleOpenEdit = async (p: Paciente) => {
     setEditingId(p.id)
     setNome(p.nome_usuario || '')
     setCns(maskCns(p.cns_usuario || ''))
@@ -134,12 +150,34 @@ export function PacientesClient({
     setNascimento(p.data_nascimento || '')
     setSexo(p.sexo || 'MASCULINO')
     setMae(p.nome_mae || '')
-    setTel1(p.telefone_1 ? maskPhone(p.telefone_1) : '')
-    setTel2(p.telefone_2 ? maskPhone(p.telefone_2) : '')
     setEndereco(p.endereco || '')
     setMunicipio(p.municipio_origem || 'MARABA')
     setObservacoes(p.observacoes || '')
     setModalOpen(true)
+
+    // Carregar telefones do paciente
+    setLoadingPhones(true)
+    try {
+      const res = await getPacienteTelefonesAction(p.id)
+      if (res.success && res.data) {
+        setTelefones(res.data.map((t: TelefoneDB) => ({
+          id: t.id,
+          numero: t.numero,
+          tipo: t.tipo,
+          status: t.status,
+          prioridade: t.prioridade,
+          nome_contato: t.nome_contato || '',
+          parentesco: t.parentesco || '',
+          observacoes: t.observacoes || '',
+        })))
+      } else {
+        setTelefones([])
+      }
+    } catch {
+      setTelefones([])
+    } finally {
+      setLoadingPhones(false)
+    }
   }
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -186,6 +224,11 @@ export function PacientesClient({
 
     setSubmitting(true)
     try {
+      // Extrair os 2 primeiros telefones ativos para os campos legados
+      const telefonesAtivos = telefones
+        .filter(t => t.status === 'ATIVO' && t.numero.replace(/\D/g, ''))
+        .sort((a, b) => a.prioridade - b.prioridade)
+
       const res = await savePacienteAction(editingId, {
         cns_usuario: cleanCns,
         cpf_usuario: cleanCpf || null,
@@ -193,14 +236,24 @@ export function PacientesClient({
         data_nascimento: nascimento || null,
         sexo: sexo || null,
         nome_mae: mae || null,
-        telefone_1: tel1 ? tel1.replace(/\D/g, '') : null,
-        telefone_2: tel2 ? tel2.replace(/\D/g, '') : null,
+        telefone_1: telefonesAtivos[0]?.numero.replace(/\D/g, '') || null,
+        telefone_2: telefonesAtivos[1]?.numero.replace(/\D/g, '') || null,
         endereco: endereco || null,
         municipio_origem: municipio || null,
         observacoes: observacoes || null
       })
 
       if (!res.success) throw new Error(res.error)
+
+      // Sincronizar telefones na tabela dedicada
+      // Para paciente novo, precisamos do ID — buscar via CNS
+      const pacienteId = editingId || res.pacienteId
+      if (pacienteId && telefones.length > 0) {
+        const syncRes = await syncPacienteTelefonesAction(pacienteId, telefones)
+        if (!syncRes.success) {
+          console.error('Erro ao sincronizar telefones:', syncRes.error)
+        }
+      }
 
       await showAlert({ title: 'Sucesso', message: editingId ? 'Ficha do paciente atualizada com sucesso!' : 'Paciente cadastrado com sucesso!', type: 'success' })
       
@@ -249,6 +302,53 @@ export function PacientesClient({
       age--
     }
     return `${age} anos`
+  }
+
+  // Renderizar telefones na tabela de listagem
+  const renderPhoneColumn = (p: Paciente) => {
+    const tels = p.pacientes_telefones || []
+    
+    if (tels.length === 0) {
+      // Fallback para campos legados se tabela nova ainda não tiver dados
+      if (p.telefone_1 || p.telefone_2) {
+        return (
+          <div className="flex flex-col gap-0.5 font-mono">
+            {p.telefone_1 && <span>{maskPhone(p.telefone_1)}</span>}
+            {p.telefone_2 && <span className="text-[10px] text-muted-foreground/60">{maskPhone(p.telefone_2)} (Recado)</span>}
+          </div>
+        )
+      }
+      return <span className="text-[10px] opacity-40 italic">Sem Contato</span>
+    }
+
+    const ativos = tels.filter(t => t.status === 'ATIVO').sort((a, b) => a.prioridade - b.prioridade)
+    const inativos = tels.filter(t => t.status !== 'ATIVO')
+
+    return (
+      <div className="flex flex-col gap-1">
+        {ativos.slice(0, 2).map((t, i) => (
+          <div key={t.id} className="flex items-center gap-1.5">
+            {i === 0 && <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />}
+            <span className={`font-mono ${i === 0 ? 'text-xs' : 'text-[10px] text-muted-foreground/70'}`}>
+              {maskPhone(t.numero)}
+            </span>
+            {t.tipo === 'RECADO' && (
+              <span className="text-[8px] text-muted-foreground/50">(Recado)</span>
+            )}
+          </div>
+        ))}
+        {(ativos.length > 2 || inativos.length > 0) && (
+          <span className="text-[8px] text-muted-foreground/40 font-bold">
+            {ativos.length > 2 ? `+${ativos.length - 2} ativo(s)` : ''}
+            {ativos.length > 2 && inativos.length > 0 ? ' · ' : ''}
+            {inativos.length > 0 ? `${inativos.length} inativo(s)` : ''}
+          </span>
+        )}
+        {ativos.length === 0 && inativos.length > 0 && (
+          <span className="text-[10px] text-red-500/60 italic font-bold">Todos inativos ({inativos.length})</span>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -359,11 +459,7 @@ export function PacientesClient({
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex flex-col gap-0.5 font-mono">
-                          {p.telefone_1 && <span>{maskPhone(p.telefone_1)}</span>}
-                          {p.telefone_2 && <span className="text-[10px] text-muted-foreground/60">{maskPhone(p.telefone_2)} (Recado)</span>}
-                          {!p.telefone_1 && !p.telefone_2 && <span className="text-[10px] opacity-40 italic">Sem Contato</span>}
-                        </div>
+                        {renderPhoneColumn(p)}
                       </td>
                       <td className="py-4 px-6 text-muted-foreground uppercase">{p.municipio_origem || 'MARABA'}</td>
                       <td className="py-4 px-6 text-right">
@@ -511,36 +607,19 @@ export function PacientesClient({
                   />
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {/* Telefone 1 */}
-                  <div className="group">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Telefone Principal (Celular/WhatsApp)</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={tel1}
-                        onChange={(e) => setTel1(maskPhone(e.target.value))}
-                        className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 pl-10 text-xs text-foreground outline-none focus:border-primary transition-all font-mono"
-                        placeholder="(94) 99123-4567"
-                      />
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/45 pointer-events-none" />
+                {/* ========== SEÇÃO DE TELEFONES (NOVO) ========== */}
+                <div className="border-t border-border/10 pt-6">
+                  {loadingPhones ? (
+                    <div className="flex items-center justify-center py-8 text-muted-foreground/50">
+                      <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-3" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Carregando telefones...</span>
                     </div>
-                  </div>
-
-                  {/* Telefone 2 */}
-                  <div className="group">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Telefone Secundário (Recado)</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={tel2}
-                        onChange={(e) => setTel2(maskPhone(e.target.value))}
-                        className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 pl-10 text-xs text-foreground outline-none focus:border-primary transition-all font-mono"
-                        placeholder="(94) 98111-2222"
-                      />
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/45 pointer-events-none" />
-                    </div>
-                  </div>
+                  ) : (
+                    <PhoneManager
+                      telefones={telefones}
+                      onChange={setTelefones}
+                    />
+                  )}
                 </div>
 
                 {/* Município de Origem */}

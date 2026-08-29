@@ -37,7 +37,7 @@ export default async function ConvocacaoPage() {
       data_execucao,
       chave_confirmacao,
       nome_executante,
-      pacientes (id, nome_usuario, cns_usuario, cpf_usuario, telefone_1, telefone_2),
+      pacientes (id, nome_usuario, cns_usuario, cpf_usuario, telefone_1, telefone_2, pacientes_telefones (id, numero, tipo, status, prioridade, nome_contato)),
       procedimentos (cod_sigtap, desc_sigtap),
       unidades_solicitantes (nome)
     `)

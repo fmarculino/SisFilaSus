@@ -39,11 +39,39 @@ CREATE TABLE public.pacientes (
     data_nascimento DATE,
     sexo VARCHAR(20),
     nome_mae VARCHAR(255),
-    telefone_1 VARCHAR(20),     -- Telefone primário
-    telefone_2 VARCHAR(20),     -- Telefone secundário
+    telefone_1 VARCHAR(20),     -- Telefone primário (legado - retrocompatibilidade)
+    telefone_2 VARCHAR(20),     -- Telefone secundário (legado - retrocompatibilidade)
     endereco TEXT,
     municipio_origem VARCHAR(100),
     observacoes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3.1. Tabela de Telefones Múltiplos do Paciente
+CREATE TABLE public.pacientes_telefones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    paciente_id UUID NOT NULL REFERENCES public.pacientes(id) ON DELETE CASCADE,
+    numero VARCHAR(20) NOT NULL,
+    tipo VARCHAR(30) NOT NULL CHECK (tipo IN (
+        'CELULAR_WHATSAPP',   -- Celular com WhatsApp
+        'CELULAR',            -- Celular sem WhatsApp
+        'FIXO',               -- Telefone fixo
+        'RECADO'              -- Número de terceiro (vizinho, familiar)
+    )),
+    status VARCHAR(30) DEFAULT 'ATIVO' NOT NULL CHECK (status IN (
+        'ATIVO',              -- Número funcional e em uso
+        'INATIVO',            -- Não está mais em uso (genérico)
+        'TROCOU_DONO',        -- Número trocou de proprietário
+        'PERDIDO',            -- Paciente perdeu o chip/aparelho
+        'DESLIGADO',          -- Número desligado/fora de serviço
+        'NAO_EXISTE',         -- Número inexistente na operadora
+        'NAO_ATENDE'          -- Toca, mas nunca atende
+    )),
+    prioridade INT DEFAULT 0 NOT NULL,  -- 0 = principal, 1, 2... maior = menor prioridade
+    nome_contato VARCHAR(255),          -- Nome de quem atende (para tipo RECADO)
+    parentesco VARCHAR(100),            -- Parentesco (mãe, vizinho, esposa, etc.)
+    observacoes TEXT,                   -- Notas livres sobre este telefone
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -297,6 +325,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_pacientes_updated_at BEFORE UPDATE ON public.pacientes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_pacientes_telefones_updated_at BEFORE UPDATE ON public.pacientes_telefones FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_fila_solicitacoes_updated_at BEFORE UPDATE ON public.fila_solicitacoes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_movimentacoes_fila_updated_at BEFORE UPDATE ON public.movimentacoes_fila FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_templates_mensagem_updated_at BEFORE UPDATE ON public.templates_mensagem FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -306,6 +335,7 @@ CREATE TRIGGER update_templates_mensagem_updated_at BEFORE UPDATE ON public.temp
 -- =========================================================
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pacientes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pacientes_telefones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.municipios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unidades_solicitantes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hospitais_prestadores ENABLE ROW LEVEL SECURITY;
@@ -333,11 +363,14 @@ $$ LANGUAGE sql SECURITY DEFINER;
 CREATE POLICY "Admins e Coordenadores gerenciam usuários" ON public.users FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR'));
 CREATE POLICY "Visualização de perfil próprio" ON public.users FOR SELECT USING (id = auth.uid());
 
--- 2. Políticas: pacientes
+-- 2. Políticas: pacientes e telefones
 CREATE POLICY "Todos autenticados visualizam e atualizam pacientes" ON public.pacientes FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Todos autenticados inserem pacientes" ON public.pacientes FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Admins, Coordenadores e Operadores atualizam pacientes" ON public.pacientes FOR UPDATE USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO'));
 CREATE POLICY "Apenas Admins deletam pacientes" ON public.pacientes FOR DELETE USING (public.get_user_role() = 'SMS_ADMIN');
+
+CREATE POLICY "Autenticados leem telefones de pacientes" ON public.pacientes_telefones FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Admins, coordenadores e operadores gerenciam telefones" ON public.pacientes_telefones FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO'));
 
 -- 3. Políticas: municípios, unidades_solicitantes, hospitais_prestadores, procedimentos, cids (Tabelas de Apoio)
 CREATE POLICY "Leitura pública/autenticada para tabelas de apoio" ON public.municipios FOR SELECT USING (true);

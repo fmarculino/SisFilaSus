@@ -59,10 +59,22 @@ export async function fetchSolicitacaoExtraData(codSolicitacao: number) {
       hospital_encaminhado_id,
       data_encaminhamento,
       data_internacao,
+      paciente_id,
       hospitais_prestadores (id, cnes, nome)
     `)
     .eq('cod_solicitacao', codSolicitacao)
     .single()
+
+  // 6. Buscar telefones do paciente vinculado
+  let telefones: any[] = []
+  if (solicitacao?.paciente_id) {
+    const { data: tels } = await supabase
+      .from('pacientes_telefones')
+      .select('id, numero, tipo, status, prioridade, nome_contato, parentesco, observacoes')
+      .eq('paciente_id', solicitacao.paciente_id)
+      .order('prioridade', { ascending: true })
+    telefones = tels || []
+  }
 
   return {
     snapshots: snapshots || [],
@@ -72,6 +84,7 @@ export async function fetchSolicitacaoExtraData(codSolicitacao: number) {
     hospitalEncaminhado: solicitacao?.hospitais_prestadores || null,
     dataEncaminhamento: solicitacao?.data_encaminhamento || null,
     dataInternacao: solicitacao?.data_internacao || null,
+    telefones,
   }
 }
 
@@ -111,6 +124,26 @@ export async function updatePatientPhone(
   })
 
   revalidatePath('/dashboard/fila')
+}
+
+/**
+ * Busca os telefones de um paciente para uso no drawer da fila.
+ */
+export async function getPatientPhones(pacienteId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('pacientes_telefones')
+    .select('id, numero, tipo, status, prioridade, nome_contato, parentesco, observacoes')
+    .eq('paciente_id', pacienteId)
+    .order('prioridade', { ascending: true })
+
+  if (error) {
+    console.error('Erro ao buscar telefones do paciente:', error.message)
+    return []
+  }
+
+  return data || []
 }
 
 export async function createContactLog(

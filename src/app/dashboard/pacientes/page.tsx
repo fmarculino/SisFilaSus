@@ -41,7 +41,7 @@ export default async function PacientesPage({
 
   let query = supabase
     .from('pacientes')
-    .select('*', { count: 'exact' })
+    .select('*, pacientes_telefones(id, numero, tipo, status, prioridade, nome_contato, parentesco, observacoes)', { count: 'exact' })
 
   // Filtro de busca (Nome, CNS ou CPF)
   if (resolvedParams.search) {
