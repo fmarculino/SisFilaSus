@@ -10,6 +10,7 @@ export interface CreateAgendaInput {
   especialidade: string
   data_agenda: string // YYYY-MM-DD
   horario_inicio: string // HH:mm
+  horario_fim?: string // HH:mm
   quantidade_vagas: number
   tipo_agenda: 'CONSULTA_PRE_OP' | 'CIRURGIA_ELETIVA' | 'PEQUENA_CIRURGIA' | 'EXAME_ESPECIALIZADO'
   observacoes_bloqueio?: string
@@ -27,6 +28,10 @@ export interface UpdateAgendamentoInput {
   data_retorno_pos_op?: string | null
   status_agendamento?: string
   observacoes_clinicas?: string | null
+  desfecho_execucao?: string | null
+  intercorrencia_tipo?: string | null
+  intercorrencia_descricao?: string | null
+  realizado_por_medico?: string | null
 }
 
 /**
@@ -54,6 +59,7 @@ export async function createAgendaAction(input: CreateAgendaInput) {
       especialidade: input.especialidade.trim().toUpperCase(),
       data_agenda: input.data_agenda,
       horario_inicio: input.horario_inicio || '08:00',
+      horario_fim: input.horario_fim || '12:00',
       quantidade_vagas: Number(input.quantidade_vagas) || 15,
       tipo_agenda: input.tipo_agenda || 'CONSULTA_PRE_OP',
       observacoes_bloqueio: input.observacoes_bloqueio?.trim() || null,
@@ -373,6 +379,10 @@ export async function updateAgendamentoAction(
   if (input.data_retorno_pos_op !== undefined) payload.data_retorno_pos_op = input.data_retorno_pos_op
   if (input.status_agendamento !== undefined) payload.status_agendamento = input.status_agendamento
   if (input.observacoes_clinicas !== undefined) payload.observacoes_clinicas = input.observacoes_clinicas
+  if (input.desfecho_execucao !== undefined) payload.desfecho_execucao = input.desfecho_execucao
+  if (input.intercorrencia_tipo !== undefined) payload.intercorrencia_tipo = input.intercorrencia_tipo
+  if (input.intercorrencia_descricao !== undefined) payload.intercorrencia_descricao = input.intercorrencia_descricao
+  if (input.realizado_por_medico !== undefined) payload.realizado_por_medico = input.realizado_por_medico
 
   const { data, error } = await supabase
     .from('agendamentos_procedimentos')

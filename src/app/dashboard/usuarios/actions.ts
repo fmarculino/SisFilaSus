@@ -8,6 +8,7 @@ export async function createUserAction(formData: {
   email: string
   role: string
   cnes_vinculo: string | null
+  hospital_id?: string | null
   active: boolean
   password: string
 }) {
@@ -37,13 +38,14 @@ export async function createUserAction(formData: {
   const userId = created.user.id
 
   // 2. O trigger on_auth_user_created insere o perfil, mas precisamos
-  // atualizar os campos específicos (role, cnes_vinculo, nome, active)
+  // atualizar os campos específicos (role, cnes_vinculo, hospital_id, nome, active)
   const { error: profileError } = await supabase
     .from('users')
     .update({
       nome: formData.nome,
       role: formData.role,
       cnes_vinculo: formData.role === 'UNIDADE_USER' ? formData.cnes_vinculo : null,
+      hospital_id: formData.role === 'PRESTADOR_USER' ? (formData.hospital_id || null) : null,
       active: formData.active
     })
     .eq('id', userId)
@@ -66,6 +68,7 @@ export async function updateUserAction(
     email: string
     role: string
     cnes_vinculo: string | null
+    hospital_id?: string | null
     active: boolean
     password?: string
   }
@@ -84,6 +87,7 @@ export async function updateUserAction(
       nome: formData.nome,
       role: formData.role,
       cnes_vinculo: formData.role === 'UNIDADE_USER' ? formData.cnes_vinculo : null,
+      hospital_id: formData.role === 'PRESTADOR_USER' ? (formData.hospital_id || null) : null,
       active: formData.active
     })
     .eq('id', userId)

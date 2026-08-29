@@ -4,7 +4,30 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.7.0] — 2026-08-03 (Atual)
+## [0.8.0] — 2026-08-29 (Atual)
+### Adicionado
+* **Central de Agendamentos & Cirurgias Eletivas (`/dashboard/agendas`)**:
+  * Novo módulo operacional com suporte a **Multivisão**:
+    * 📅 **Calendário Mensal/Semanal**: Indicadores visuais de lotação de vagas por dia e médico em tempo real.
+    * 📊 **Kanban Cirúrgico (Funil do Paciente)**: Acompanhamento de fluxo em 6 colunas desde a Consulta Pré-Op até a Cirurgia Realizada ou Intercorrências.
+    * 📋 **Visão Planilha Geral**: Tabela rápida no estilo Google Sheets com barras de ocupação.
+    * 📑 **Fechamento & Devolutiva SISREG**: Painel para conferência de desfechos clínicos com **Exportação para CSV (Excel)** e marcação em lote de alimentados.
+  * **Alocação Inteligente com 1 Clique**: Puxa automaticamente os pacientes prioritários da fila de espera que necessitam daquela especialidade, ordenados por Classificação de Risco e posição na fila.
+  * **Acompanhamento Clínico Completo**: Check-in na recepção, parecer de risco cardiológico/anestésico, data agendada da cirurgia e confirmação de realização.
+* **Portal do Prestador de Serviços & Intercorrências Clínicas**:
+  * Criado o perfil de usuário **`PRESTADOR_USER`** vinculado diretamente à clínica/hospital conveniado (`hospital_id`).
+  * Autonomia para clínicas e hospitais ofertarem suas agendas com **Horário de Início e Término**, cota de vagas e orientações de sala.
+  * **Modal de Registro de Intercorrências Clínicas**: Categorização padronizada (risco cardiológico não autorizou, contraindicação anestésica, falta de UTI, absenteísmo, suspensão por jejum) com justificativa médica detalhada.
+* **Sistema de Múltiplos Telefones por Paciente (`pacientes_telefones`)**:
+  * Suporte a N telefones por paciente com ordenação por prioridade (⭐ número principal).
+  * Rastreamento de status de cada telefone (🟢 Ativo, 🔴 Inativo, 🟠 Trocou de Dono, 🟡 Perdido, ⚫ Desligado, 🔵 Não Existe, 🟣 Não Atende).
+  * Classificação de tipos (`CELULAR_WHATSAPP`, `CELULAR`, `FIXO`, `RECADO` com nome do contato e parentesco).
+  * Componentes reutilizáveis `PhoneBadge.tsx` e `PhoneManager.tsx` integrados em todas as telas (Pacientes, Fila, Convocações e Agendamentos).
+  * Manutenção de retrocompatibilidade com campos legados `telefone_1` e `telefone_2`.
+
+---
+
+## [0.7.0] — 2026-08-03
 ### Adicionado
 * **Fluxo de Recuperação de Senha (Supabase Auth SSR)**:
   * Ativada a redefinição de palavra-chave diretamente pela tela de entrada através da rota `/esqueci-a-senha`.

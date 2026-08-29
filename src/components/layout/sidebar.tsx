@@ -10,8 +10,9 @@ import {
 } from 'lucide-react'
 import { AboutMenu } from './about-menu'
 
-const ALL_ROLES = ['SMS_ADMIN', 'COORDENADOR', 'MEDICO_REGULADOR', 'OPERADOR_REGULACAO', 'AUXILIAR', 'UNIDADE_USER']
+const ALL_ROLES = ['SMS_ADMIN', 'COORDENADOR', 'MEDICO_REGULADOR', 'OPERADOR_REGULACAO', 'AUXILIAR', 'UNIDADE_USER', 'PRESTADOR_USER']
 const ADMIN_COORD_OPERADOR = ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO']
+const ADMIN_COORD_OPERADOR_PRESTADOR = ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'PRESTADOR_USER']
 const ADMIN_COORD = ['SMS_ADMIN', 'COORDENADOR']
 
 const navigation = [
@@ -25,14 +26,14 @@ const navigation = [
     name: 'Fila de Espera', 
     href: '/dashboard/fila', 
     icon: ClipboardList, 
-    roles: ALL_ROLES
+    roles: ['SMS_ADMIN', 'COORDENADOR', 'MEDICO_REGULADOR', 'OPERADOR_REGULACAO', 'AUXILIAR', 'UNIDADE_USER']
   },
   {
     name: 'Operações',
     icon: CalendarCheck,
     roles: ALL_ROLES,
     children: [
-      { name: 'Agendas & Cirurgias', href: '/dashboard/agendas', icon: CalendarDays, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Agendas & Cirurgias', href: '/dashboard/agendas', icon: CalendarDays, roles: ADMIN_COORD_OPERADOR_PRESTADOR },
       { name: 'Convocações', href: '/dashboard/convocacao', icon: CalendarCheck, roles: ADMIN_COORD_OPERADOR },
       { name: 'Movimentações', href: '/dashboard/movimentacoes', icon: History, roles: ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'MEDICO_REGULADOR'] },
       { name: 'Sincronização SISREG', href: '/dashboard/sincronizacao', icon: RefreshCw, roles: ADMIN_COORD_OPERADOR },

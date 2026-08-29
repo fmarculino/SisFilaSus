@@ -16,6 +16,7 @@ interface UserProfile {
   nome: string
   role: string
   cnes_vinculo: string | null
+  hospital_id?: string | null
   active: boolean
   created_at: string
 }
@@ -25,11 +26,18 @@ interface Unidade {
   nome: string
 }
 
+interface Prestador {
+  id: string
+  cnes: string
+  nome: string
+}
+
 interface UsuariosClientProps {
   role: string
   email: string
   users: UserProfile[]
   unidades: Unidade[]
+  prestadores?: Prestador[]
 }
 
 const DISPONIVEIS_ROLES = [
@@ -38,14 +46,16 @@ const DISPONIVEIS_ROLES = [
   { value: 'MEDICO_REGULADOR', label: 'Médico Regulador / Autorizador' },
   { value: 'OPERADOR_REGULACAO', label: 'Operador de Regulação (Convocador)' },
   { value: 'AUXILIAR', label: 'Auxiliar Administrativo' },
-  { value: 'UNIDADE_USER', label: 'Unidade Solicitante (Vínculo CNES)' }
+  { value: 'UNIDADE_USER', label: 'Unidade Solicitante (Vínculo CNES)' },
+  { value: 'PRESTADOR_USER', label: 'Prestador de Serviços (Clínica / Hospital)' }
 ]
 
 export function UsuariosClient({ 
   role: userRole, 
   email: userEmail, 
   users: initialUsers, 
-  unidades 
+  unidades,
+  prestadores = []
 }: UsuariosClientProps) {
   const { showAlert, showConfirm } = useSystemModal()
   const [users, setUsers] = useState<UserProfile[]>(initialUsers)
@@ -63,6 +73,7 @@ export function UsuariosClient({
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('OPERADOR_REGULACAO')
   const [cnesVinculo, setCnesVinculo] = useState<string>('')
+  const [hospitalId, setHospitalId] = useState<string>('')
   const [active, setActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -73,6 +84,7 @@ export function UsuariosClient({
     setPassword('')
     setRole('OPERADOR_REGULACAO')
     setCnesVinculo('')
+    setHospitalId('')
     setActive(true)
     setModalOpen(true)
   }
@@ -84,6 +96,7 @@ export function UsuariosClient({
     setPassword('') // Senha vazia significa "não alterar" no update
     setRole(u.role || 'OPERADOR_REGULACAO')
     setCnesVinculo(u.cnes_vinculo || '')
+    setHospitalId(u.hospital_id || '')
     setActive(u.active)
     setModalOpen(true)
   }
@@ -111,6 +124,11 @@ export function UsuariosClient({
       return
     }
 
+    if (role === 'PRESTADOR_USER' && !hospitalId) {
+      await showAlert({ title: 'Atenção', message: 'Usuários do tipo Prestador de Serviços devem possuir vínculo com uma Clínica/Hospital.', type: 'warning' })
+      return
+    }
+
     setSubmitting(true)
     try {
       const payload = {
@@ -118,6 +136,7 @@ export function UsuariosClient({
         email: email.trim().toLowerCase(),
         role,
         cnes_vinculo: role === 'UNIDADE_USER' ? cnesVinculo : null,
+        hospital_id: role === 'PRESTADOR_USER' ? hospitalId : null,
         active,
         password
       }
@@ -484,6 +503,24 @@ export function UsuariosClient({
                       <option value="">Selecione uma unidade...</option>
                       {unidades.map(u => (
                         <option key={u.cnes} value={u.cnes}>{u.cnes} - {u.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Vínculo Prestador (Dinâmico para PRESTADOR_USER) */}
+                {role === 'PRESTADOR_USER' && (
+                  <div className="group animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Selecione a Clínica / Hospital Prestador</label>
+                    <select
+                      value={hospitalId}
+                      required={role === 'PRESTADOR_USER'}
+                      onChange={(e) => setHospitalId(e.target.value)}
+                      className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all uppercase"
+                    >
+                      <option value="">Selecione um prestador...</option>
+                      {prestadores.map(p => (
+                        <option key={p.id} value={p.id}>{p.nome} (CNES: {p.cnes})</option>
                       ))}
                     </select>
                   </div>

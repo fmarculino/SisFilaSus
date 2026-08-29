@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import { AgendasClient } from './AgendasClient'
+import { AgendasClient } from '@/app/dashboard/agendas/AgendasClient'
 
 export default async function AgendasPage() {
   const supabase = await createClient()
@@ -13,13 +13,14 @@ export default async function AgendasPage() {
   // Obter perfil do usuário
   const { data: profile } = await supabase
     .from('users')
-    .select('role, nome')
+    .select('role, nome, hospital_id')
     .eq('id', user.id)
     .single()
 
   const role = profile?.role || 'OPERADOR_REGULACAO'
+  const userHospitalId = profile?.hospital_id || null
 
-  const allowedRoles = ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'AUXILIAR']
+  const allowedRoles = ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'AUXILIAR', 'PRESTADOR_USER']
   if (!allowedRoles.includes(role)) {
     redirect('/dashboard')
   }
@@ -42,7 +43,7 @@ export default async function AgendasPage() {
   const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0]
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString().split('T')[0]
 
-  const { data: agendas } = await supabase
+  let query = supabase
     .from('agendas_prestadores')
     .select(`
       id,
@@ -71,10 +72,17 @@ export default async function AgendasPage() {
     .order('data_agenda', { ascending: true })
     .order('horario_inicio', { ascending: true })
 
+  if (role === 'PRESTADOR_USER' && userHospitalId) {
+    query = query.eq('hospital_id', userHospitalId)
+  }
+
+  const { data: agendas } = await query
+
   return (
     <AgendasClient
       role={role}
       email={user.email || ''}
+      userHospitalId={userHospitalId}
       prestadores={prestadores || []}
       templates={templates || []}
       initialAgendas={agendas || []}

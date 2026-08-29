@@ -59,6 +59,7 @@ import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communicatio
 interface AgendasClientProps {
   role: string
   email: string
+  userHospitalId?: string | null
   prestadores: any[]
   templates: any[]
   initialAgendas: any[]
@@ -73,12 +74,13 @@ const KANBAN_COLUMNS = [
   { id: 'AGUARDANDO_CIRURGIA', label: 'Aguardando Data Cirurgia', color: 'border-amber-500/30 bg-amber-500/5 text-amber-500' },
   { id: 'CIRURGIA_AGENDADA', label: 'Cirurgia Agendada', color: 'border-purple-500/30 bg-purple-500/5 text-purple-500' },
   { id: 'CIRURGIA_REALIZADA', label: 'Cirurgia Realizada (Sucesso)', color: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-500' },
-  { id: 'DESFECHOS_CANCELADOS', label: 'Inaptos / Faltas / Desistências', color: 'border-rose-500/30 bg-rose-500/5 text-rose-500' },
+  { id: 'DESFECHOS_CANCELADOS', label: 'Inaptos / Faltas / Intercorrências', color: 'border-rose-500/30 bg-rose-500/5 text-rose-500' },
 ]
 
 export function AgendasClient({
   role,
   email,
+  userHospitalId,
   prestadores,
   templates,
   initialAgendas
@@ -91,7 +93,7 @@ export function AgendasClient({
 
   // Agendas e Filtros
   const [agendas, setAgendas] = useState<any[]>(initialAgendas)
-  const [selectedHospital, setSelectedHospital] = useState('')
+  const [selectedHospital, setSelectedHospital] = useState(userHospitalId || '')
   const [selectedEspecialidade, setSelectedEspecialidade] = useState('')
   const [searchMedico, setSearchMedico] = useState('')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -102,13 +104,22 @@ export function AgendasClient({
   const [drawerAgendaOpen, setDrawerAgendaOpen] = useState(false)
   const [drawerAlocarOpen, setDrawerAlocarOpen] = useState(false)
 
+  // Modal de Intercorrência Clínica
+  const [modalIntercorrencia, setModalIntercorrencia] = useState(false)
+  const [intercorrenciaAgendamento, setIntercorrenciaAgendamento] = useState<any | null>(null)
+  const [tipoIntercorrencia, setTipoIntercorrencia] = useState('REPROVADO_RISCO_CARDIOLOGICO')
+  const [descIntercorrencia, setDescIntercorrencia] = useState('')
+  const [medicoIntercorrencia, setMedicoIntercorrencia] = useState('')
+  const [savingIntercorrencia, setSavingIntercorrencia] = useState(false)
+
   // Formulário Nova Agenda
   const [formNovaAgenda, setFormNovaAgenda] = useState<CreateAgendaInput>({
-    hospital_id: '',
+    hospital_id: userHospitalId || '',
     medico_nome: '',
     especialidade: 'CIRURGIA GERAL',
     data_agenda: new Date().toISOString().split('T')[0],
     horario_inicio: '08:00',
+    horario_fim: '12:00',
     quantidade_vagas: 15,
     tipo_agenda: 'CONSULTA_PRE_OP',
     observacoes_bloqueio: ''
@@ -133,6 +144,46 @@ export function AgendasClient({
 
   // Disparos WhatsApp
   const [sendingWa, setSendingWa] = useState(false)
+
+  // Handlers de Intercorrência
+  const handleOpenIntercorrencia = (ag: any) => {
+    setIntercorrenciaAgendamento(ag)
+    setTipoIntercorrencia(ag.intercorrencia_tipo || 'REPROVADO_RISCO_CARDIOLOGICO')
+    setDescIntercorrencia(ag.intercorrencia_descricao || ag.observacoes_clinicas || '')
+    setMedicoIntercorrencia(ag.realizado_por_medico || agendaDetalhada?.medico_nome || '')
+    setModalIntercorrencia(true)
+  }
+
+  const handleSaveIntercorrencia = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!intercorrenciaAgendamento) return
+    setSavingIntercorrencia(true)
+    try {
+      const statusMap: Record<string, string> = {
+        REPROVADO_RISCO_CARDIOLOGICO: 'INAPTO_RISCO_CIRURGICO',
+        REPROVADO_ANESTESIA: 'INAPTO_RISCO_CIRURGICO',
+        FALTA_LEITO_UTI: 'ENCAMINHADO_ALTA_COMPLEXIDADE',
+        ABSENTEISMO_PACIENTE: 'ABSENTEISMO_CIRURGIA',
+        SUSPENSAO_CLINICA: 'INAPTO_RISCO_CIRURGICO',
+        INTERCORRENCIA_CLINICA: 'INAPTO_RISCO_CIRURGICO'
+      }
+      const nextStatus = statusMap[tipoIntercorrencia] || 'INAPTO_RISCO_CIRURGICO'
+
+      await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
+        desfecho_execucao: tipoIntercorrencia,
+        intercorrencia_tipo: tipoIntercorrencia,
+        intercorrencia_descricao: descIntercorrencia,
+        realizado_por_medico: medicoIntercorrencia,
+        status_agendamento: nextStatus,
+        observacoes_clinicas: descIntercorrencia
+      })
+
+      showAlert({ title: 'Intercorrência Registrada', message: 'Parecer clínico registrado com sucesso e equipe informada.', type: 'success' })
+      setModalIntercorrencia(false)
+    } finally {
+      setSavingIntercorrencia(false)
+    }
+  }
 
   // Atualizar agendas quando filtros de período/hospital mudarem
   const reloadAgendas = async () => {
@@ -1308,18 +1359,18 @@ export function AgendasClient({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateAgendamento(ag.id, { cirurgia_realizada: false, status_agendamento: 'ABSENTEISMO_CIRURGIA' })}
-                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all ${
-                                      ag.cirurgia_realizada === false ? 'bg-rose-600 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                                    onClick={() => handleOpenIntercorrencia(ag)}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all border ${
+                                      ag.intercorrencia_tipo ? 'bg-amber-500/20 text-amber-500 border-amber-500/40' : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
                                     }`}
                                   >
-                                    ✗ Não Operou
+                                    ⚠️ Intercorrência / Falta
                                   </button>
                                 </div>
                               </div>
 
                               <div className="space-y-1">
-                                <label className="block text-[8px] font-black uppercase text-muted-foreground">Observação Clínica / Motivo</label>
+                                <label className="block text-[8px] font-black uppercase text-muted-foreground">Observação Clínica / Parecer</label>
                                 <input
                                   type="text"
                                   defaultValue={ag.observacoes_clinicas || ''}
@@ -1543,9 +1594,9 @@ export function AgendasClient({
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-4">
                   <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Data da Sessão</label>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Data</label>
                     <input
                       type="date"
                       required
@@ -1556,13 +1607,25 @@ export function AgendasClient({
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Horário Início</label>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Início</label>
                     <input
                       type="text"
                       required
                       value={formNovaAgenda.horario_inicio}
                       onChange={(e) => setFormNovaAgenda(prev => ({ ...prev, horario_inicio: e.target.value }))}
                       placeholder="08:00"
+                      className="block w-full rounded-xl border border-border/50 bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary text-foreground font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Término</label>
+                    <input
+                      type="text"
+                      required
+                      value={formNovaAgenda.horario_fim || '12:00'}
+                      onChange={(e) => setFormNovaAgenda(prev => ({ ...prev, horario_fim: e.target.value }))}
+                      placeholder="12:00"
                       className="block w-full rounded-xl border border-border/50 bg-background/50 py-2 px-3 text-xs outline-none focus:border-primary text-foreground font-mono"
                     />
                   </div>
@@ -1615,6 +1678,107 @@ export function AgendasClient({
         </Portal>
       )}
 
+      {/* ======================================================== */}
+      {/* MODAL: REGISTRO DE INTERCORRÊNCIA / PARECER CLÍNICO     */}
+      {/* ======================================================== */}
+      {modalIntercorrencia && intercorrenciaAgendamento && (
+        <Portal>
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+              onClick={() => setModalIntercorrencia(false)}
+            />
+            <div className="relative w-full max-w-lg bg-card border border-border/40 shadow-2xl rounded-3xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
+              
+              <div className="flex items-center justify-between border-b border-border/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Avaliação & Intercorrência</span>
+                    <h3 className="text-base font-black text-foreground uppercase">Parecer do Prestador</h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalIntercorrencia(false)}
+                  className="p-2 rounded-full hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="p-3 bg-muted/20 rounded-xl space-y-1">
+                <span className="text-[9px] font-black uppercase text-muted-foreground">Paciente</span>
+                <p className="text-xs font-black uppercase text-foreground">{intercorrenciaAgendamento.pacientes?.nome_usuario}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">SOL: {intercorrenciaAgendamento.cod_solicitacao}</p>
+              </div>
+
+              <form onSubmit={handleSaveIntercorrencia} className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Tipo de Ocorrência / Motivo</label>
+                  <select
+                    value={tipoIntercorrencia}
+                    onChange={(e) => setTipoIntercorrencia(e.target.value)}
+                    className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary text-foreground font-bold"
+                  >
+                    <option value="REPROVADO_RISCO_CARDIOLOGICO">🫀 Risco Cardiológico Não Autorizou</option>
+                    <option value="REPROVADO_ANESTESIA">💉 Contraindicação Anestésica</option>
+                    <option value="FALTA_LEITO_UTI">🏥 Falta de Retaguarda / Leito de UTI</option>
+                    <option value="INTERCORRENCIA_CLINICA">⚠️ Complicação Clínica Durante Atendimento</option>
+                    <option value="ABSENTEISMO_PACIENTE">🚶 Paciente Não Compareceu (Falta)</option>
+                    <option value="SUSPENSAO_CLINICA">❌ Suspensão por Jejum / Preparo Inadequado</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Médico Avaliador / Cirurgião</label>
+                  <input
+                    type="text"
+                    value={medicoIntercorrencia}
+                    onChange={(e) => setMedicoIntercorrencia(e.target.value)}
+                    placeholder="Ex: DR. JOSÉ ROBERTO"
+                    className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary text-foreground uppercase font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Justificativa Detalhada / Observação</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={descIntercorrencia}
+                    onChange={(e) => setDescIntercorrencia(e.target.value)}
+                    placeholder="Descreva o parecer médico, motivo da não realização ou orientações para a Regulação..."
+                    className="block w-full rounded-xl border border-border/50 bg-background/50 p-3 text-xs outline-none focus:border-primary text-foreground"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-border/10">
+                  <button
+                    type="button"
+                    onClick={() => setModalIntercorrencia(false)}
+                    className="w-1/2 py-3 border border-border/40 text-muted-foreground hover:bg-muted/50 hover:text-foreground text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingIntercorrencia}
+                    className="w-1/2 py-3 bg-amber-500 text-black font-black text-[10px] uppercase tracking-widest rounded-xl hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-amber-500/20"
+                  >
+                    {savingIntercorrencia ? 'Salvando...' : 'Registrar Parecer'}
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </Portal>
+      )}
+
     </DashboardShell>
   )
 }
+
+export default AgendasClient

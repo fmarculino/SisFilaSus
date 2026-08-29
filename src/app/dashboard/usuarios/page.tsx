@@ -37,12 +37,20 @@ export default async function UsuariosPage() {
     .select('cnes, nome')
     .order('nome')
 
+  // Buscar prestadores / hospitais para vínculo de PRESTADOR_USER
+  const { data: dbPrestadores } = await supabase
+    .from('hospitais_prestadores')
+    .select('id, cnes, nome')
+    .eq('active', true)
+    .order('nome')
+
   return (
     <UsuariosClient
       role={role}
       email={user.email || ''}
       users={dbUsers || []}
       unidades={dbUnidades || []}
+      prestadores={dbPrestadores || []}
     />
   )
 }
