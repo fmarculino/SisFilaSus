@@ -277,6 +277,64 @@ CREATE TABLE public.configuracoes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 17. Oferta de Agendas / Vagas pelos Prestadores
+CREATE TABLE public.agendas_prestadores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hospital_id UUID REFERENCES public.hospitais_prestadores(id) ON DELETE SET NULL,
+    medico_nome VARCHAR(255) NOT NULL,
+    especialidade VARCHAR(100) NOT NULL,
+    data_agenda DATE NOT NULL,
+    horario_inicio VARCHAR(10) NOT NULL DEFAULT '08:00',
+    quantidade_vagas INT NOT NULL DEFAULT 15,
+    tipo_agenda VARCHAR(50) NOT NULL DEFAULT 'CONSULTA_PRE_OP' CHECK (
+        tipo_agenda IN ('CONSULTA_PRE_OP', 'CIRURGIA_ELETIVA', 'PEQUENA_CIRURGIA', 'EXAME_ESPECIALIZADO')
+    ),
+    observacoes_bloqueio TEXT,
+    active BOOLEAN DEFAULT true NOT NULL,
+    created_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 18. Agendamentos dos Pacientes nas Agendas
+CREATE TABLE public.agendamentos_procedimentos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agenda_id UUID NOT NULL REFERENCES public.agendas_prestadores(id) ON DELETE CASCADE,
+    cod_solicitacao BIGINT NOT NULL REFERENCES public.fila_solicitacoes(cod_solicitacao) ON DELETE CASCADE,
+    paciente_id UUID NOT NULL REFERENCES public.pacientes(id) ON DELETE CASCADE,
+    
+    compareceu_consulta BOOLEAN,
+    data_consulta_realizada DATE,
+    parecer_pre_op VARCHAR(50) CHECK (
+        parecer_pre_op IN ('APTO_CIRURGIA', 'INAPTO_TEMPORARIO', 'INAPTO_DEFINITIVO', 'ENCAMINHADO_OUTRO_SERVICO')
+    ),
+    
+    data_cirurgia_agendada DATE,
+    cirurgia_realizada BOOLEAN,
+    data_cirurgia_execucao DATE,
+    data_internacao DATE,
+    data_alta DATE,
+    data_retorno_pos_op DATE,
+    
+    status_agendamento VARCHAR(50) DEFAULT 'AGENDADO_PRE_OP' NOT NULL CHECK (
+        status_agendamento IN (
+            'EM_CONVOCACAO', 'AGENDADO_PRE_OP', 'CONSULTA_REALIZADA',
+            'AGUARDANDO_CIRURGIA', 'CIRURGIA_AGENDADA', 'CIRURGIA_REALIZADA',
+            'ABSENTEISMO_CONSULTA', 'ABSENTEISMO_CIRURGIA', 'INAPTO_RISCO_CIRURGICO',
+            'DESISTENCIA_PACIENTE', 'ENCAMINHADO_ALTA_COMPLEXIDADE'
+        )
+    ),
+    
+    observacoes_clinicas TEXT,
+    exportado_sisreg BOOLEAN DEFAULT false NOT NULL,
+    data_exportacao_sisreg TIMESTAMPTZ,
+    
+    agendado_por UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT uk_solicitacao_agenda UNIQUE (agenda_id, cod_solicitacao)
+);
+
 -- =========================================================
 -- ÍNDICES PARA OTIMIZAÇÃO
 -- =========================================================
@@ -329,6 +387,8 @@ CREATE TRIGGER update_pacientes_telefones_updated_at BEFORE UPDATE ON public.pac
 CREATE TRIGGER update_fila_solicitacoes_updated_at BEFORE UPDATE ON public.fila_solicitacoes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_movimentacoes_fila_updated_at BEFORE UPDATE ON public.movimentacoes_fila FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_templates_mensagem_updated_at BEFORE UPDATE ON public.templates_mensagem FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_agendas_prestadores_updated_at BEFORE UPDATE ON public.agendas_prestadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_agendamentos_procedimentos_updated_at BEFORE UPDATE ON public.agendamentos_procedimentos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- =========================================================
 -- POLÍTICAS DE SEGURANÇA (RLS)
@@ -349,6 +409,8 @@ ALTER TABLE public.movimentacoes_fila ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates_mensagem ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.configuracoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agendas_prestadores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agendamentos_procedimentos ENABLE ROW LEVEL SECURITY;
 
 -- Funções helper de consulta de perfil de segurança
 CREATE OR REPLACE FUNCTION public.get_user_role() RETURNS TEXT AS $$
@@ -425,9 +487,14 @@ CREATE POLICY "Leitura de templates para usuários autenticados" ON public.templ
 CREATE POLICY "Edição de templates exclusiva para gestores" ON public.templates_mensagem FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR'));
 
 CREATE POLICY "Leitura de configurações gerais para usuários autenticados" ON public.configuracoes FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Edição de configurações exclusiva para gestores" ON public.configuracoes FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR'));
+-- 10. Políticas: agendas_prestadores e agendamentos_procedimentos
+CREATE POLICY "Autenticados leem agendas" ON public.agendas_prestadores FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Admins, coordenadores e operadores gerenciam agendas" ON public.agendas_prestadores FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO'));
 
--- 10. Inserção Inicial de Configurações Padrão
+CREATE POLICY "Autenticados leem agendamentos" ON public.agendamentos_procedimentos FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Admins, coordenadores e operadores gerenciam agendamentos" ON public.agendamentos_procedimentos FOR ALL USING (public.get_user_role() IN ('SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'AUXILIAR'));
+
+-- 11. Inserção Inicial de Configurações Padrão
 INSERT INTO public.configuracoes (chave, valor)
 VALUES (
     'comunicacao',
