@@ -155,6 +155,7 @@ const FLOW_STEPS = [
   {
     step: 1,
     title: 'Ingestão de Dados & Higienização',
+    shortTitle: 'Ingestão de Dados',
     subtitle: 'Como a informação entra no sistema',
     icon: FileSpreadsheet,
     color: 'border-blue-500 bg-blue-500/10 text-blue-500',
@@ -170,6 +171,7 @@ const FLOW_STEPS = [
   {
     step: 2,
     title: 'Fila Única & Classificação de Risco',
+    shortTitle: 'Classificação de Risco',
     subtitle: 'Organização inteligente por gravidade clínica',
     icon: Layers,
     color: 'border-indigo-500 bg-indigo-500/10 text-indigo-500',
@@ -186,6 +188,7 @@ const FLOW_STEPS = [
   {
     step: 3,
     title: 'Convocação Ativa & Triagem Telefônica',
+    shortTitle: 'Convocação Ativa',
     subtitle: 'Localizando e confirmando os pacientes',
     icon: PhoneCall,
     color: 'border-cyan-500 bg-cyan-500/10 text-cyan-500',
@@ -201,6 +204,7 @@ const FLOW_STEPS = [
   {
     step: 4,
     title: 'Workflow de Segurança & Mudança de Risco',
+    shortTitle: 'Mudança de Risco',
     subtitle: 'Garantindo a lisura e evitando privilégios',
     icon: Shield,
     color: 'border-purple-500 bg-purple-500/10 text-purple-500',
@@ -216,6 +220,7 @@ const FLOW_STEPS = [
   {
     step: 5,
     title: 'Oferta de Agendas pelos Prestadores',
+    shortTitle: 'Oferta de Agendas',
     subtitle: 'Hospitais disponibilizam as vagas',
     icon: Calendar,
     color: 'border-amber-500 bg-amber-500/10 text-amber-500',
@@ -231,6 +236,7 @@ const FLOW_STEPS = [
   {
     step: 6,
     title: 'Alocação & Funil Cirúrgico (Kanban)',
+    shortTitle: 'Funil Cirúrgico',
     subtitle: 'A jornada do paciente do pré-op à alta',
     icon: GripVertical,
     color: 'border-emerald-500 bg-emerald-500/10 text-emerald-500',
@@ -249,6 +255,7 @@ const FLOW_STEPS = [
   {
     step: 7,
     title: 'Fechamento SISREG & Prestação de Contas',
+    shortTitle: 'Prestação SISREG',
     subtitle: 'Devolutiva oficial ao Ministério da Saúde',
     icon: CheckCircle2,
     color: 'border-rose-500 bg-rose-500/10 text-rose-500',
@@ -504,34 +511,95 @@ export default function GuiaPage() {
             <p className="text-xs text-muted-foreground">Acompanhe as 7 etapas contínuas do SisFilaSus, desde a importação dos dados até o fechamento cirúrgico.</p>
           </div>
 
-          {/* Stepper de Navegação */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {/* Barra de Progresso Geral da Jornada */}
+          <div className="bg-card border border-border/40 p-4 rounded-2xl space-y-2 shadow-sm">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-muted-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                Jornada do Paciente em 7 Etapas
+              </span>
+              <span className="text-primary font-mono bg-primary/10 px-2.5 py-0.5 rounded-full text-[11px]">
+                Etapa {activeStep} de 7 ({Math.round((activeStep / 7) * 100)}%)
+              </span>
+            </div>
+            <div className="w-full h-2 bg-muted/60 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-emerald-500 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(activeStep / 7) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stepper de Navegação Completo em Grid (Todas as 7 etapas visíveis) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
             {FLOW_STEPS.map((s) => {
               const isActive = activeStep === s.step
+              const isPassed = activeStep > s.step
+              const StepIcon = s.icon
+
               return (
                 <button
                   key={s.step}
                   type="button"
                   onClick={() => setActiveStep(s.step)}
-                  className={`px-4 py-2.5 rounded-2xl border text-xs font-black uppercase transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
+                  className={`p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between relative overflow-hidden group ${
                     isActive
-                      ? 'border-primary bg-primary text-primary-foreground shadow-md scale-105'
-                      : 'border-border/40 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                      ? 'border-primary bg-primary text-primary-foreground shadow-lg ring-2 ring-primary/30 scale-[1.03] z-10'
+                      : isPassed
+                      ? 'border-emerald-500/30 bg-emerald-500/5 text-foreground hover:border-emerald-500/60 hover:bg-emerald-500/10'
+                      : 'border-border/40 bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-muted/40'
                   }`}
                 >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                    isActive ? 'bg-white text-primary' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {s.step}
-                  </span>
-                  <span>{s.title}</span>
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span
+                      className={`w-6 h-6 rounded-xl flex items-center justify-center text-[10px] font-black font-mono transition-colors ${
+                        isActive
+                          ? 'bg-white text-primary shadow-sm'
+                          : isPassed
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-muted text-muted-foreground group-hover:text-foreground'
+                      }`}
+                    >
+                      {isPassed ? <Check className="h-3 w-3 stroke-[3]" /> : `0${s.step}`}
+                    </span>
+                    <StepIcon
+                      className={`h-4 w-4 transition-colors ${
+                        isActive
+                          ? 'text-white'
+                          : isPassed
+                          ? 'text-emerald-500'
+                          : 'text-muted-foreground group-hover:text-primary'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <span
+                      className={`text-[11px] font-black uppercase tracking-tight block leading-snug line-clamp-2 ${
+                        isActive ? 'text-white' : 'text-foreground'
+                      }`}
+                    >
+                      {s.shortTitle}
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold block mt-0.5 ${
+                        isActive
+                          ? 'text-white/80'
+                          : isPassed
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
+                      {isActive ? '● Em foco' : isPassed ? '✓ Concluído' : `Etapa ${s.step}`}
+                    </span>
+                  </div>
                 </button>
               )
             })}
           </div>
 
           {/* Card Detalhado da Etapa Selecionada */}
-          <div className="bento-card p-6 sm:p-8 space-y-6 border-t-4 border-t-primary">
+          <div className="bento-card p-6 sm:p-8 space-y-6 border-t-4 border-t-primary shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/20">
               <div className="flex items-center gap-3.5">
                 <div className={`p-3.5 rounded-2xl border ${currentStepData.color} shadow-sm`}>
@@ -588,17 +656,24 @@ export default function GuiaPage() {
                 type="button"
                 disabled={activeStep === 1}
                 onClick={() => setActiveStep(prev => Math.max(1, prev - 1))}
-                className="px-4 py-2 rounded-xl border border-border/40 text-xs font-bold text-foreground disabled:opacity-30 hover:bg-muted transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-border/40 text-xs font-bold text-foreground disabled:opacity-30 hover:bg-muted transition-all cursor-pointer flex items-center gap-1.5"
               >
-                ← Etapa Anterior
+                <span>← Etapa Anterior</span>
               </button>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {FLOW_STEPS.map(s => (
-                  <span
+                  <button
                     key={s.step}
-                    className={`h-2 rounded-full transition-all ${
-                      activeStep === s.step ? 'w-6 bg-primary' : 'w-2 bg-muted'
+                    type="button"
+                    onClick={() => setActiveStep(s.step)}
+                    title={`Ir para etapa ${s.step}: ${s.shortTitle}`}
+                    className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                      activeStep === s.step
+                        ? 'w-7 bg-primary'
+                        : activeStep > s.step
+                        ? 'w-2.5 bg-emerald-500/80 hover:bg-emerald-500'
+                        : 'w-2.5 bg-muted hover:bg-muted-foreground/50'
                     }`}
                   />
                 ))}
@@ -608,9 +683,9 @@ export default function GuiaPage() {
                 type="button"
                 disabled={activeStep === 7}
                 onClick={() => setActiveStep(prev => Math.min(7, prev + 1))}
-                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-30 hover:bg-primary/90 transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-30 hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
               >
-                Próxima Etapa →
+                <span>Próxima Etapa →</span>
               </button>
             </div>
           </div>
