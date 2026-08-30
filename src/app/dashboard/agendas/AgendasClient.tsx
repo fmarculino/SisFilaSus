@@ -55,12 +55,15 @@ import {
   type UpdateAgendamentoInput
 } from './actions'
 import { sendWhatsAppMessageAction, getWhatsAppWebUrl } from '@/lib/communication'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface AgendasClientProps {
   role: string
   email: string
   userHospitalId?: string | null
   prestadores: any[]
+  medicos?: any[]
+  especialidades?: any[]
   templates: any[]
   initialAgendas: any[]
 }
@@ -82,10 +85,47 @@ export function AgendasClient({
   email,
   userHospitalId,
   prestadores,
+  medicos = [],
+  especialidades = [],
   templates,
   initialAgendas
 }: AgendasClientProps) {
   const { showAlert, showConfirm } = useSystemModal()
+
+  // Opções para Busca Incremental
+  const medicoOptions = useMemo(() => {
+    return (medicos || []).map((m: any) => ({
+      value: m.nome,
+      label: m.nome,
+      subLabel: `CRM: ${m.crm}-${m.uf_crm}`,
+      badge: m.especialidade_nome || m.especialidades?.nome || undefined,
+      data: m
+    }))
+  }, [medicos])
+
+  const especialidadeOptions = useMemo(() => {
+    const fromDb = (especialidades || []).map((e: any) => ({
+      value: e.nome,
+      label: e.nome
+    }))
+    if (fromDb.length > 0) return fromDb
+    return [
+      { value: 'CIRURGIA GERAL', label: 'CIRURGIA GERAL' },
+      { value: 'UROLOGIA', label: 'UROLOGIA' },
+      { value: 'PEQUENAS CIRURGIAS', label: 'PEQUENAS CIRURGIAS' },
+      { value: 'GINECOLOGIA', label: 'GINECOLOGIA' },
+      { value: 'ORTOPEDIA', label: 'ORTOPEDIA' },
+      { value: 'OFTALMOLOGIA', label: 'OFTALMOLOGIA' },
+    ]
+  }, [especialidades])
+
+  const prestadorOptions = useMemo(() => {
+    return (prestadores || []).map((p: any) => ({
+      value: p.id,
+      label: p.nome,
+      subLabel: p.cnes ? `CNES: ${p.cnes}` : undefined
+    }))
+  }, [prestadores])
 
   // Navegação de Visão
   const [viewMode, setViewMode] = useState<ViewMode>('CALENDAR')
@@ -1551,46 +1591,61 @@ export function AgendasClient({
 
               <form onSubmit={handleCreateAgenda} className="space-y-4">
                 <div>
-                  <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Médico Responsável</label>
-                  <input
-                    type="text"
-                    required
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">
+                    Médico Responsável *
+                  </label>
+                  <SearchableSelect
+                    options={medicoOptions}
                     value={formNovaAgenda.medico_nome}
-                    onChange={(e) => setFormNovaAgenda(prev => ({ ...prev, medico_nome: e.target.value }))}
-                    placeholder="Ex: DR. JOSÉ ROBERTO"
-                    className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary text-foreground uppercase font-bold"
+                    onChange={(val, opt) => {
+                      setFormNovaAgenda(prev => {
+                        const next = { ...prev, medico_nome: val }
+                        if (opt?.data) {
+                          if (opt.data.especialidade_nome) {
+                            next.especialidade = opt.data.especialidade_nome
+                          } else if (opt.data.especialidades?.nome) {
+                            next.especialidade = opt.data.especialidades.nome
+                          }
+                          if (opt.data.hospital_id) {
+                            next.hospital_id = opt.data.hospital_id
+                          }
+                        }
+                        return next
+                      })
+                    }}
+                    placeholder="Selecione ou busque o médico cadastrado..."
+                    searchPlaceholder="Buscar médico por nome ou CRM..."
+                    buttonClassName="rounded-xl py-2.5"
                   />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Especialidade</label>
-                    <select
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">
+                      Especialidade *
+                    </label>
+                    <SearchableSelect
+                      options={especialidadeOptions}
                       value={formNovaAgenda.especialidade}
-                      onChange={(e) => setFormNovaAgenda(prev => ({ ...prev, especialidade: e.target.value }))}
-                      className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary text-foreground font-bold"
-                    >
-                      <option value="CIRURGIA GERAL">CIRURGIA GERAL</option>
-                      <option value="UROLOGIA">UROLOGIA</option>
-                      <option value="PEQUENAS CIRURGIAS">PEQUENAS CIRURGIAS</option>
-                      <option value="GINECOLOGIA">GINECOLOGIA</option>
-                      <option value="ORTOPEDIA">ORTOPEDIA</option>
-                      <option value="OFTALMOLOGIA">OFTALMOLOGIA</option>
-                    </select>
+                      onChange={(val) => setFormNovaAgenda(prev => ({ ...prev, especialidade: val }))}
+                      placeholder="Selecione a especialidade..."
+                      searchPlaceholder="Buscar especialidade..."
+                      buttonClassName="rounded-xl py-2.5 font-bold"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Hospital / Prestador</label>
-                    <select
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">
+                      Hospital / Prestador
+                    </label>
+                    <SearchableSelect
+                      options={prestadorOptions}
                       value={formNovaAgenda.hospital_id || ''}
-                      onChange={(e) => setFormNovaAgenda(prev => ({ ...prev, hospital_id: e.target.value }))}
-                      className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary text-foreground"
-                    >
-                      <option value="">Central de Regulação (Padrão)</option>
-                      {prestadores.map(p => (
-                        <option key={p.id} value={p.id}>{p.nome}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormNovaAgenda(prev => ({ ...prev, hospital_id: val }))}
+                      placeholder="Central de Regulação (Padrão)"
+                      searchPlaceholder="Buscar hospital ou prestador..."
+                      buttonClassName="rounded-xl py-2.5"
+                    />
                   </div>
                 </div>
 

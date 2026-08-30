@@ -189,14 +189,22 @@ export default async function FilaPage({
   const { data: dbMunicipios } = await supabase.from('municipios').select('codigo_ibge, nome').order('nome')
   const { data: dbUnidades } = await supabase.from('unidades_solicitantes').select('cnes, nome').order('nome')
 
-  // Buscar especialidades únicas cadastradas
-  const { data: dbEspecialidades } = await supabase
+  // Buscar especialidades cadastradas e dos procedimentos
+  const { data: dbEspecialidadesTable } = await supabase
+    .from('especialidades')
+    .select('nome')
+    .eq('active', true)
+
+  const { data: dbEspecialidadesProc } = await supabase
     .from('procedimentos')
     .select('grupo_descricao')
     .not('grupo_descricao', 'is', null)
 
   const especialidades = Array.from(
-    new Set((dbEspecialidades || []).map(p => p.grupo_descricao?.trim()))
+    new Set([
+      ...(dbEspecialidadesTable || []).map(e => e.nome?.trim()),
+      ...(dbEspecialidadesProc || []).map(p => p.grupo_descricao?.trim())
+    ])
   ).filter(Boolean).sort() as string[]
 
   return (

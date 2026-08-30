@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
@@ -16,6 +16,7 @@ import { useSystemModal } from '@/components/ui/SystemModal'
 import { PhoneManager, type TelefoneData } from '@/components/ui/PhoneManager'
 import { PhoneBadge } from '@/components/ui/PhoneBadge'
 import { syncPacienteTelefonesAction } from '@/app/dashboard/pacientes/telefone-actions'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 
 const formatPhone = (value: string) => {
@@ -96,31 +97,37 @@ export function FilaClient({
   const [especialidade, setEspecialidade] = useState(appliedFilters.especialidade || '')
   const [modalidade, setModalidade] = useState(appliedFilters.modalidade || '')
 
-  // Estados para busca incremental de procedimentos no filtro
-  const [procedDropdownOpen, setProcedDropdownOpen] = useState(false)
-  const [procedSearchQuery, setProcedSearchQuery] = useState('')
-  const procedContainerRef = useRef<HTMLDivElement>(null)
+  // Opções para caixas de seleção com busca incremental
+  const procedOptions = useMemo(() => {
+    return procedimentos.map(p => ({
+      value: p.cod_sigtap,
+      label: p.desc_sigtap.trim(),
+      subLabel: `Código: ${p.cod_sigtap}`
+    }))
+  }, [procedimentos])
 
-  // Sincronizar o termo de busca com o procedimento selecionado
-  useEffect(() => {
-    const selected = procedimentos.find(p => p.cod_sigtap === proced)
-    setProcedSearchQuery(selected ? selected.desc_sigtap.trim() : '')
-  }, [proced, procedimentos])
+  const municipioOptions = useMemo(() => {
+    return municipios.map(m => ({
+      value: m.codigo_ibge,
+      label: m.nome,
+      subLabel: `IBGE: ${m.codigo_ibge}`
+    }))
+  }, [municipios])
 
-  // Fechar o menu de procedimentos ao clicar fora do componente
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (procedContainerRef.current && !procedContainerRef.current.contains(event.target as Node)) {
-        setProcedDropdownOpen(false)
-        const selected = procedimentos.find(p => p.cod_sigtap === proced)
-        setProcedSearchQuery(selected ? selected.desc_sigtap.trim() : '')
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [proced, procedimentos])
+  const unidadeOptions = useMemo(() => {
+    return unidades.map(u => ({
+      value: u.cnes,
+      label: u.nome,
+      subLabel: `CNES: ${u.cnes}`
+    }))
+  }, [unidades])
+
+  const especialidadeOptions = useMemo(() => {
+    return especialidades.map(esp => ({
+      value: esp,
+      label: esp
+    }))
+  }, [especialidades])
 
   // Drawer (Detalhamento)
   const [selectedSol, setSelectedSol] = useState<any | null>(null)
@@ -650,137 +657,56 @@ export function FilaClient({
                 </div>
               </div>
 
-              {/* Procedimento */}
-              <div className="group relative" ref={procedContainerRef}>
+              {/* Procedimento com Busca Incremental */}
+              <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Procedimento</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={procedSearchQuery}
-                    onChange={(e) => {
-                      setProcedSearchQuery(e.target.value)
-                      setProcedDropdownOpen(true)
-                    }}
-                    onFocus={() => setProcedDropdownOpen(true)}
-                    placeholder="Todos os Procedimentos"
-                    className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 pl-4 pr-10 text-xs text-foreground outline-none focus:border-primary transition-all placeholder:text-muted-foreground/50"
-                  />
-                  {proced ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProced('')
-                        setProcedSearchQuery('')
-                        setProcedDropdownOpen(false)
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors p-1"
-                      title="Limpar procedimento"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
-                      <Search className="h-4.5 w-4.5" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Dropdown de Sugestões com Busca Incremental */}
-                {procedDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-2 rounded-2xl border border-border/50 bg-background/95 backdrop-blur-md shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                    <ul className="py-2 text-xs divide-y divide-border/5">
-                      <li
-                        onClick={() => {
-                          setProced('')
-                          setProcedSearchQuery('')
-                          setProcedDropdownOpen(false)
-                        }}
-                        className={`px-4 py-3 cursor-pointer transition-colors font-bold uppercase tracking-wider text-[10px] text-muted-foreground hover:bg-muted/50 ${
-                          !proced ? 'bg-primary/10 text-primary' : ''
-                        }`}
-                      >
-                        Todos os Procedimentos
-                      </li>
-                      {procedimentos
-                        .filter(p => {
-                          const query = procedSearchQuery.toLowerCase().trim()
-                          if (!query) return true
-                          return (
-                            p.cod_sigtap.includes(query) ||
-                            p.desc_sigtap.toLowerCase().includes(query)
-                          )
-                        })
-                        .slice(0, 50)
-                        .map(p => {
-                          const isSelected = p.cod_sigtap === proced
-                          return (
-                            <li
-                              key={p.cod_sigtap}
-                              onClick={() => {
-                                setProced(p.cod_sigtap)
-                                setProcedDropdownOpen(false)
-                              }}
-                              className={`px-4 py-2.5 cursor-pointer hover:bg-primary/5 transition-colors flex flex-col gap-0.5 ${
-                                isSelected ? 'bg-primary/10 border-l-2 border-primary' : ''
-                              }`}
-                            >
-                              <span className="font-bold text-foreground line-clamp-2">
-                                {p.desc_sigtap.trim()}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground/60 font-mono font-bold">
-                                Código: {p.cod_sigtap}
-                              </span>
-                            </li>
-                          )
-                        })}
-                    </ul>
-                  </div>
-                )}
+                <SearchableSelect
+                  options={procedOptions}
+                  value={proced}
+                  onChange={(val) => setProced(val)}
+                  placeholder="Todos os Procedimentos"
+                  searchPlaceholder="Buscar por nome ou código SIGTAP..."
+                  buttonClassName="rounded-2xl py-3.5"
+                />
               </div>
 
-              {/* Município de Origem */}
+              {/* Município de Origem com Busca Incremental */}
               <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Município de Origem</label>
-                <select
+                <SearchableSelect
+                  options={municipioOptions}
                   value={municipio}
-                  onChange={(e) => setMunicipio(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
-                >
-                  <option value="">Todos os Municípios</option>
-                  {municipios.map(m => (
-                    <option key={m.codigo_ibge} value={m.codigo_ibge}>{m.nome}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setMunicipio(val)}
+                  placeholder="Todos os Municípios"
+                  searchPlaceholder="Buscar município ou código IBGE..."
+                  buttonClassName="rounded-2xl py-3.5"
+                />
               </div>
 
-              {/* Unidade Solicitante */}
+              {/* Unidade Solicitante com Busca Incremental */}
               <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Unidade Solicitante</label>
-                <select
+                <SearchableSelect
+                  options={unidadeOptions}
                   value={unidade}
-                  onChange={(e) => setUnidade(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
-                >
-                  <option value="">Todas as Unidades</option>
-                  {unidades.map(u => (
-                    <option key={u.cnes} value={u.cnes}>{u.nome}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setUnidade(val)}
+                  placeholder="Todas as Unidades"
+                  searchPlaceholder="Buscar unidade por nome ou CNES..."
+                  buttonClassName="rounded-2xl py-3.5"
+                />
               </div>
 
-              {/* Especialidade */}
+              {/* Especialidade com Busca Incremental */}
               <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Especialidade</label>
-                <select
+                <SearchableSelect
+                  options={especialidadeOptions}
                   value={especialidade}
-                  onChange={(e) => setEspecialidade(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
-                >
-                  <option value="">Todas as Especialidades</option>
-                  {especialidades.map(esp => (
-                    <option key={esp} value={esp}>{esp}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setEspecialidade(val)}
+                  placeholder="Todas as Especialidades"
+                  searchPlaceholder="Buscar especialidade..."
+                  buttonClassName="rounded-2xl py-3.5"
+                />
               </div>
 
               {/* Classificação de Risco */}

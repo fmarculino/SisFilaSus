@@ -93,7 +93,34 @@ CREATE TABLE public.unidades_solicitantes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 6. Hospitais Prestadores / Executantes (Rede de Referência)
+-- 6. Especialidades Médicas
+CREATE TABLE public.especialidades (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nome VARCHAR(255) NOT NULL UNIQUE,
+    descricao TEXT,
+    active BOOLEAN DEFAULT true NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6.1. Médicos Credenciados / Reguladores
+CREATE TABLE public.medicos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nome VARCHAR(255) NOT NULL,
+    crm VARCHAR(50) NOT NULL,
+    uf_crm VARCHAR(2) DEFAULT 'PA' NOT NULL,
+    especialidade_id UUID REFERENCES public.especialidades(id) ON DELETE SET NULL,
+    especialidade_nome VARCHAR(255),
+    hospital_id UUID REFERENCES public.hospitais_prestadores(id) ON DELETE SET NULL,
+    telefone VARCHAR(50),
+    email VARCHAR(255),
+    active BOOLEAN DEFAULT true NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT uk_crm_uf UNIQUE (crm, uf_crm)
+);
+
+-- 6.2. Hospitais Prestadores / Executantes (Rede de Referência)
 CREATE TABLE public.hospitais_prestadores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cnes VARCHAR(10) UNIQUE,

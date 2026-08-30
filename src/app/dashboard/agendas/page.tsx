@@ -32,6 +32,20 @@ export default async function AgendasPage() {
     .eq('active', true)
     .order('nome')
 
+  // Buscar médicos cadastrados ativos
+  const { data: medicos } = await supabase
+    .from('medicos')
+    .select('id, nome, crm, uf_crm, especialidade_id, especialidade_nome, hospital_id')
+    .eq('active', true)
+    .order('nome')
+
+  // Buscar especialidades ativas
+  const { data: especialidades } = await supabase
+    .from('especialidades')
+    .select('id, nome')
+    .eq('active', true)
+    .order('nome')
+
   // Buscar templates de mensagem ativos
   const { data: templates } = await supabase
     .from('templates_mensagem')
@@ -84,6 +98,8 @@ export default async function AgendasPage() {
       email={user.email || ''}
       userHospitalId={userHospitalId}
       prestadores={prestadores || []}
+      medicos={medicos || []}
+      especialidades={especialidades || []}
       templates={templates || []}
       initialAgendas={agendas || []}
     />

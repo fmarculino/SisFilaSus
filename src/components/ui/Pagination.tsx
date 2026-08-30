@@ -7,9 +7,11 @@ interface PaginationProps {
   totalItems: number
   itemsPerPage: number
   currentPage: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }
 
-export function Pagination({ totalItems, itemsPerPage, currentPage }: PaginationProps) {
+export function Pagination({ totalItems, itemsPerPage, currentPage, onPageChange }: PaginationProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -32,7 +34,11 @@ export function Pagination({ totalItems, itemsPerPage, currentPage }: Pagination
 
   const goToPage = (page: number) => {
     if (page < 1 || page > totalPages) return
-    router.push(`${pathname}?${createQueryString({ page })}`)
+    if (onPageChange) {
+      onPageChange(page)
+    } else {
+      router.push(`${pathname}?${createQueryString({ page })}`)
+    }
   }
 
   const changeLimit = (limit: string) => {

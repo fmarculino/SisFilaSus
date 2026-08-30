@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { 
   Plus, Edit2, X, User, Check, Key, UserCheck, UserX,
@@ -9,6 +9,7 @@ import {
 import { Portal } from '@/components/ui/Portal'
 import { createUserAction, updateUserAction } from './actions'
 import { useSystemModal } from '@/components/ui/SystemModal'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface UserProfile {
   id: string
@@ -76,6 +77,23 @@ export function UsuariosClient({
   const [hospitalId, setHospitalId] = useState<string>('')
   const [active, setActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  // Opções para SearchableSelect
+  const unidadeOptions = useMemo(() => {
+    return (unidades || []).map(u => ({
+      value: u.cnes,
+      label: u.nome,
+      subLabel: `CNES: ${u.cnes}`
+    }))
+  }, [unidades])
+
+  const prestadorOptions = useMemo(() => {
+    return (prestadores || []).map(p => ({
+      value: p.id,
+      label: p.nome,
+      subLabel: p.cnes ? `CNES: ${p.cnes}` : undefined
+    }))
+  }, [prestadores])
 
   const handleOpenCreate = () => {
     setEditingId(undefined)
@@ -493,36 +511,34 @@ export function UsuariosClient({
                 {/* Vínculo CNES (Dinâmico para UNIDADE_USER) */}
                 {role === 'UNIDADE_USER' && (
                   <div className="group animate-in slide-in-from-top-2 duration-300">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Selecione a Unidade Solicitante</label>
-                    <select
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">
+                      Selecione a Unidade Solicitante *
+                    </label>
+                    <SearchableSelect
+                      options={unidadeOptions}
                       value={cnesVinculo}
-                      required={role === 'UNIDADE_USER'}
-                      onChange={(e) => setCnesVinculo(e.target.value)}
-                      className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all uppercase"
-                    >
-                      <option value="">Selecione uma unidade...</option>
-                      {unidades.map(u => (
-                        <option key={u.cnes} value={u.cnes}>{u.cnes} - {u.nome}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setCnesVinculo(val)}
+                      placeholder="Selecione a unidade de saúde..."
+                      searchPlaceholder="Buscar por nome ou CNES..."
+                      buttonClassName="rounded-2xl py-3.5 font-bold"
+                    />
                   </div>
                 )}
 
                 {/* Vínculo Prestador (Dinâmico para PRESTADOR_USER) */}
                 {role === 'PRESTADOR_USER' && (
                   <div className="group animate-in slide-in-from-top-2 duration-300">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Selecione a Clínica / Hospital Prestador</label>
-                    <select
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">
+                      Selecione a Clínica / Hospital Prestador *
+                    </label>
+                    <SearchableSelect
+                      options={prestadorOptions}
                       value={hospitalId}
-                      required={role === 'PRESTADOR_USER'}
-                      onChange={(e) => setHospitalId(e.target.value)}
-                      className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all uppercase"
-                    >
-                      <option value="">Selecione um prestador...</option>
-                      {prestadores.map(p => (
-                        <option key={p.id} value={p.id}>{p.nome} (CNES: {p.cnes})</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setHospitalId(val)}
+                      placeholder="Selecione o prestador credenciado..."
+                      searchPlaceholder="Buscar por clínica/hospital ou CNES..."
+                      buttonClassName="rounded-2xl py-3.5 font-bold"
+                    />
                   </div>
                 )}
 

@@ -76,13 +76,20 @@ export default async function PacientesPage({
 
   const { data: pacientes, count } = await query
 
-  // Buscar municípios únicos na base de pacientes para popular o dropdown do filtro
+  // Buscar municípios únicos e cadastrados na tabela oficial
   const { data: dbCities } = await supabase
     .from('pacientes')
     .select('municipio_origem')
 
+  const { data: dbMunicipiosTable } = await supabase
+    .from('municipios')
+    .select('nome')
+
   const municipios = Array.from(
-    new Set((dbCities || []).map(p => p.municipio_origem?.trim().toUpperCase()))
+    new Set([
+      ...(dbMunicipiosTable || []).map(m => m.nome?.trim().toUpperCase()),
+      ...(dbCities || []).map(p => p.municipio_origem?.trim().toUpperCase())
+    ])
   ).filter(Boolean).sort() as string[]
 
   return (

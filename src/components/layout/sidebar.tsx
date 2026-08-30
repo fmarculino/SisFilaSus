@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react'
 import { 
   LayoutDashboard, ClipboardList, CalendarCheck, History,
   Users, Building2, Download, ScrollText, Settings, Lock, 
-  Shield, ChevronDown, Stethoscope, UserCog, RefreshCw, CalendarDays
+  Shield, ChevronDown, Stethoscope, UserCog, RefreshCw, CalendarDays,
+  UserCheck, Award, Activity, MapPin, Landmark
 } from 'lucide-react'
 import { AboutMenu } from './about-menu'
 
@@ -46,6 +47,11 @@ const navigation = [
     roles: ALL_ROLES,
     children: [
       { name: 'Pacientes', href: '/dashboard/pacientes', icon: Users, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Médicos', href: '/dashboard/medicos', icon: UserCheck, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Especialidades', href: '/dashboard/especialidades', icon: Award, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Procedimentos (SIGTAP)', href: '/dashboard/procedimentos', icon: Activity, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Unidades Solicitantes', href: '/dashboard/unidades', icon: Landmark, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Municípios', href: '/dashboard/municipios', icon: MapPin, roles: ADMIN_COORD_OPERADOR },
       { name: 'Prestadores (Hospitais)', href: '/dashboard/prestadores', icon: Building2, roles: ADMIN_COORD },
       { name: 'Usuários', href: '/dashboard/usuarios', icon: UserCog, roles: ['SMS_ADMIN', 'COORDENADOR'] },
     ]

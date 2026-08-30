@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
@@ -14,6 +14,7 @@ import {
 import { savePacienteAction, deletePacienteAction } from './actions'
 import { syncPacienteTelefonesAction, getPacienteTelefonesAction } from './telefone-actions'
 import { useSystemModal } from '@/components/ui/SystemModal'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
 interface TelefoneDB {
   id: string
@@ -98,6 +99,14 @@ export function PacientesClient({
   const [municipio, setMunicipio] = useState('MARABA')
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Opções para SearchableSelect de Municípios
+  const municipioOptions = useMemo(() => {
+    return (municipios || []).map(m => ({
+      value: m,
+      label: m
+    }))
+  }, [municipios])
 
   // Telefones (novo sistema multi-telefone)
   const [telefones, setTelefones] = useState<TelefoneData[]>([])
@@ -386,16 +395,14 @@ export function PacientesClient({
 
             <div className="group w-full sm:w-64">
               <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Município</label>
-              <select
+              <SearchableSelect
+                options={municipioOptions}
                 value={selectedMunicipio}
-                onChange={(e) => setSelectedMunicipio(e.target.value)}
-                className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
-              >
-                <option value="">Todos os Municípios</option>
-                {municipios.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedMunicipio(val)}
+                placeholder="Todos os Municípios"
+                searchPlaceholder="Buscar município..."
+                buttonClassName="rounded-2xl py-3.5"
+              />
             </div>
 
             <div className="flex gap-2 shrink-0 w-full sm:w-auto">
@@ -625,13 +632,13 @@ export function PacientesClient({
                 {/* Município de Origem */}
                 <div className="group">
                   <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Município de Residência</label>
-                  <input
-                    type="text"
-                    required
+                  <SearchableSelect
+                    options={municipioOptions}
                     value={municipio}
-                    onChange={(e) => setMunicipio(e.target.value)}
-                    className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all uppercase"
-                    placeholder="MARABA"
+                    onChange={(val) => setMunicipio(val || 'MARABA')}
+                    placeholder="Selecione o Município..."
+                    searchPlaceholder="Buscar município..."
+                    buttonClassName="rounded-2xl py-3.5 font-bold uppercase"
                   />
                 </div>
 
