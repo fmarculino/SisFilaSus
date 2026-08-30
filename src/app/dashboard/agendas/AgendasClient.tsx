@@ -37,7 +37,8 @@ import {
   Star,
   Activity,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  GripVertical
 } from 'lucide-react'
 import {
   createAgendaAction,
@@ -172,9 +173,62 @@ export function AgendasClient({
   const [loadingFila, setLoadingFila] = useState(false)
   const [allocatingId, setAllocatingId] = useState<number | null>(null)
 
-  // Dados Kanban
+  // Dados Kanban & Drag-and-Drop
   const [kanbanData, setKanbanData] = useState<any[]>([])
   const [loadingKanban, setLoadingKanban] = useState(false)
+  const [draggedAgendamentoId, setDraggedAgendamentoId] = useState<string | null>(null)
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null)
+
+  // Movimentação de Cards do Kanban (Drag & Drop ou Select)
+  const handleMoveKanbanCard = async (agendamentoId: string, targetColOrStatus: string) => {
+    let newStatus = targetColOrStatus
+    let payload: UpdateAgendamentoInput = { status_agendamento: newStatus }
+
+    if (targetColOrStatus === 'AGENDADO_PRE_OP') {
+      newStatus = 'AGENDADO_PRE_OP'
+      payload = { status_agendamento: 'AGENDADO_PRE_OP', compareceu_consulta: null, parecer_pre_op: null }
+    } else if (targetColOrStatus === 'CONSULTA_REALIZADA') {
+      newStatus = 'CONSULTA_REALIZADA'
+      payload = { status_agendamento: 'CONSULTA_REALIZADA', compareceu_consulta: true }
+    } else if (targetColOrStatus === 'AGUARDANDO_CIRURGIA') {
+      newStatus = 'AGUARDANDO_CIRURGIA'
+      payload = { status_agendamento: 'AGUARDANDO_CIRURGIA', compareceu_consulta: true, parecer_pre_op: 'APTO_CIRURGIA' }
+    } else if (targetColOrStatus === 'CIRURGIA_AGENDADA') {
+      newStatus = 'CIRURGIA_AGENDADA'
+      payload = { status_agendamento: 'CIRURGIA_AGENDADA' }
+    } else if (targetColOrStatus === 'CIRURGIA_REALIZADA') {
+      newStatus = 'CIRURGIA_REALIZADA'
+      payload = { status_agendamento: 'CIRURGIA_REALIZADA', cirurgia_realizada: true }
+    } else if (targetColOrStatus === 'DESFECHOS_CANCELADOS') {
+      newStatus = 'ABSENTEISMO_CONSULTA'
+      payload = { status_agendamento: 'ABSENTEISMO_CONSULTA', compareceu_consulta: false }
+    }
+
+    // Atualização Otimista Imediata da Interface
+    const previousData = [...kanbanData]
+    setKanbanData(prev => prev.map(item => {
+      if (item.id === agendamentoId) {
+        return {
+          ...item,
+          ...payload,
+          status_agendamento: newStatus
+        }
+      }
+      return item
+    }))
+
+    // Persistência no Banco via Server Action
+    try {
+      const res = await updateAgendamentoAction(agendamentoId, payload)
+      if (!res.success) {
+        setKanbanData(previousData)
+        await showAlert({ title: 'Erro ao mover card', message: res.error || 'Não foi possível atualizar o status.', type: 'error' })
+      }
+    } catch (err: any) {
+      setKanbanData(previousData)
+      await showAlert({ title: 'Erro de comunicação', message: err.message || 'Falha ao salvar alteração.', type: 'error' })
+    }
+  }
 
   // Dados Fechamento SISREG
   const [sisregData, setSisregData] = useState<any[]>([])
@@ -873,8 +927,33 @@ export function AgendasClient({
                     return item.status_agendamento === col.id
                   })
 
+                  const isOver = dragOverColId === col.id
+
                   return (
-                    <div key={col.id} className="bento-card p-4 flex flex-col h-[750px] border-t-4">
+                    <div
+                      key={col.id}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        setDragOverColId(col.id)
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverColId === col.id) setDragOverColId(null)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setDragOverColId(null)
+                        const agendamentoId = e.dataTransfer.getData('text/plain') || draggedAgendamentoId
+                        if (agendamentoId) {
+                          handleMoveKanbanCard(agendamentoId, col.id)
+                        }
+                      }}
+                      className={`bento-card p-4 flex flex-col h-[750px] border-t-4 transition-all duration-200 ${col.color} ${
+                        isOver
+                          ? 'ring-2 ring-primary bg-primary/10 border-primary shadow-xl scale-[1.015]'
+                          : 'border-border/30'
+                      }`}
+                    >
                       {/* Header da Coluna */}
                       <div className="pb-3 border-b border-border/20 flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-wider text-foreground">
@@ -885,25 +964,46 @@ export function AgendasClient({
                         </span>
                       </div>
 
-                      {/* Lista de Cards */}
+                      {/* Lista de Cards com Drag & Drop */}
                       <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1">
                         {items.length === 0 ? (
-                          <div className="py-8 text-center text-muted-foreground/40 text-[10px] font-bold uppercase tracking-wider">
-                            Nenhum paciente
+                          <div className={`py-12 text-center rounded-2xl border-2 border-dashed transition-all ${
+                            isOver 
+                              ? 'border-primary/50 bg-primary/5 text-primary' 
+                              : 'border-border/30 text-muted-foreground/40'
+                          } text-[10px] font-bold uppercase tracking-wider`}>
+                            {isOver ? 'Solte para mover aqui' : 'Nenhum paciente'}
                           </div>
                         ) : (
                           items.map(item => {
                             const tel = item.pacientes?.pacientes_telefones?.[0]?.numero || item.pacientes?.telefone_1 || ''
+                            const isBeingDragged = draggedAgendamentoId === item.id
                             
                             return (
                               <div
                                 key={item.id}
-                                className="p-3 rounded-2xl border border-border/40 bg-card/60 hover:border-primary/40 transition-all space-y-2.5 shadow-sm"
+                                draggable={true}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', item.id)
+                                  setDraggedAgendamentoId(item.id)
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedAgendamentoId(null)
+                                  setDragOverColId(null)
+                                }}
+                                className={`group p-3 rounded-2xl border bg-card/80 hover:border-primary/50 transition-all duration-150 space-y-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md select-none ${
+                                  isBeingDragged
+                                    ? 'opacity-40 scale-95 border-dashed border-primary ring-2 ring-primary/20'
+                                    : 'border-border/40'
+                                }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[8px] font-mono font-black text-muted-foreground/60">
-                                    SOL: {item.cod_solicitacao}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
+                                    <span className="text-[8px] font-mono font-black text-muted-foreground/70">
+                                      SOL: {item.cod_solicitacao}
+                                    </span>
+                                  </div>
                                   <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                                     {item.agendas_prestadores?.especialidade}
                                   </span>
@@ -914,7 +1014,7 @@ export function AgendasClient({
                                     {item.pacientes?.nome_usuario}
                                   </h4>
                                   <p className="text-[9px] text-muted-foreground font-semibold truncate mt-0.5">
-                                    {item.fila_solicitacoes?.procedimentos?.desc_sigtap}
+                                    {item.fila_solicitacoes?.procedimentos?.desc_sigtap || item.observacoes_clinicas || 'Procedimento Cirúrgico'}
                                   </p>
                                 </div>
 
@@ -927,31 +1027,34 @@ export function AgendasClient({
                                 </div>
 
                                 {/* Ações Rápidas no Card */}
-                                <div className="flex items-center justify-between pt-2 border-t border-border/10">
+                                <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-2">
                                   {tel ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleSendWhatsApp(tel, item.pacientes.nome_usuario, item.agendas_prestadores.especialidade, item.agendas_prestadores.data_agenda)}
-                                      className="p-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleSendWhatsApp(tel, item.pacientes.nome_usuario, item.agendas_prestadores.especialidade, item.agendas_prestadores.data_agenda)
+                                      }}
+                                      className="p-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all cursor-pointer shrink-0"
                                       title="Chamar WhatsApp"
                                     >
                                       <MessageSquare className="h-3.5 w-3.5" />
                                     </button>
                                   ) : (
-                                    <span className="text-[8px] opacity-40 italic">Sem Tel</span>
+                                    <span className="text-[8px] opacity-40 italic shrink-0">Sem Tel</span>
                                   )}
 
-                                  {/* Select de Avanço de Status */}
+                                  {/* Select de Avanço de Status como alternativa ao Drag and Drop */}
                                   <select
                                     value={item.status_agendamento}
-                                    onChange={(e) => handleUpdateAgendamento(item.id, { status_agendamento: e.target.value })}
-                                    className="text-[8px] font-black uppercase rounded-lg border border-border/40 bg-background/50 py-1 px-2 text-foreground outline-none focus:border-primary"
+                                    onChange={(e) => handleMoveKanbanCard(item.id, e.target.value)}
+                                    className="text-[8px] font-black uppercase rounded-lg border border-border/40 bg-background/50 py-1 px-2 text-foreground outline-none focus:border-primary cursor-pointer w-full text-right"
                                   >
-                                    <option value="AGENDADO_PRE_OP">Pré-Op Agendado</option>
-                                    <option value="CONSULTA_REALIZADA">Consulta Realizada</option>
-                                    <option value="AGUARDANDO_CIRURGIA">Aguardando Cirurgia</option>
-                                    <option value="CIRURGIA_AGENDADA">Cirurgia Agendada</option>
-                                    <option value="CIRURGIA_REALIZADA">Cirurgia Realizada</option>
+                                    <option value="AGENDADO_PRE_OP">1. Pré-Op Agendado</option>
+                                    <option value="CONSULTA_REALIZADA">2. Consulta Realizada</option>
+                                    <option value="AGUARDANDO_CIRURGIA">3. Aguardando Cirurgia</option>
+                                    <option value="CIRURGIA_AGENDADA">4. Cirurgia Agendada</option>
+                                    <option value="CIRURGIA_REALIZADA">5. Cirurgia Realizada</option>
                                     <option value="ABSENTEISMO_CONSULTA">Faltou Consulta</option>
                                     <option value="ABSENTEISMO_CIRURGIA">Faltou Cirurgia</option>
                                     <option value="INAPTO_RISCO_CIRURGICO">Inapto Risco</option>
