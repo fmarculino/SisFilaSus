@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarCheck, History,
   Users, Building2, Download, ScrollText, Settings, Lock, 
   Shield, ChevronDown, Stethoscope, UserCog, RefreshCw, CalendarDays,
-  UserCheck, Award, Activity, MapPin, Landmark
+  UserCheck, Award, Activity, MapPin, Landmark, BookOpen
 } from 'lucide-react'
 import { AboutMenu } from './about-menu'
 
@@ -21,6 +21,12 @@ const navigation = [
     name: 'Dashboard', 
     href: '/dashboard', 
     icon: LayoutDashboard, 
+    roles: ALL_ROLES
+  },
+  { 
+    name: 'Guia & Manual', 
+    href: '/guia', 
+    icon: BookOpen, 
     roles: ALL_ROLES
   },
   { 
