@@ -403,10 +403,10 @@ export async function updateAgendamentoAction(
         .from('fila_solicitacoes')
         .update({ status_interno: 'PROCEDIMENTO_REALIZADO', execucao_confirmada: true })
         .eq('cod_solicitacao', data.cod_solicitacao)
-    } else if (input.cirurgia_realizada === false) {
+    } else if (input.cirurgia_realizada === false || (input.cirurgia_realizada === null && data.status_agendamento !== 'CIRURGIA_REALIZADA')) {
       await supabase
         .from('fila_solicitacoes')
-        .update({ status_interno: 'AGENDADO', execucao_confirmada: false })
+        .update({ status_interno: 'CONVOCADO_CONFIRMADO', execucao_confirmada: false })
         .eq('cod_solicitacao', data.cod_solicitacao)
     } else if (data.status_agendamento === 'DESISTENCIA_PACIENTE') {
       await supabase

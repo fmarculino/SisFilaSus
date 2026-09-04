@@ -263,7 +263,7 @@ export function AgendasClient({
       }
       const nextStatus = statusMap[tipoIntercorrencia] || 'INAPTO_RISCO_CIRURGICO'
 
-      await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
+      const ok = await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
         desfecho_execucao: tipoIntercorrencia,
         intercorrencia_tipo: tipoIntercorrencia,
         intercorrencia_descricao: descIntercorrencia,
@@ -272,8 +272,10 @@ export function AgendasClient({
         observacoes_clinicas: descIntercorrencia
       })
 
-      showAlert({ title: 'Intercorrência Registrada', message: 'Parecer clínico registrado com sucesso e equipe informada.', type: 'success' })
-      setModalIntercorrencia(false)
+      if (ok) {
+        showAlert({ title: 'Intercorrência Registrada', message: 'Parecer clínico registrado com sucesso e equipe informada.', type: 'success' })
+        setModalIntercorrencia(false)
+      }
     } finally {
       setSavingIntercorrencia(false)
     }
@@ -294,20 +296,26 @@ export function AgendasClient({
 
     setSavingIntercorrencia(true)
     try {
-      await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
+      const fallbackStatus = intercorrenciaAgendamento.data_cirurgia_agendada
+        ? 'CIRURGIA_AGENDADA'
+        : (intercorrenciaAgendamento.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO_PRE_OP')
+
+      const ok = await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
         intercorrencia_tipo: null,
         intercorrencia_descricao: null,
         desfecho_execucao: null,
         status_agendamento: intercorrenciaAgendamento.cirurgia_realizada
           ? 'CIRURGIA_REALIZADA'
-          : (intercorrenciaAgendamento.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO')
+          : fallbackStatus
       })
-      showAlert({
-        title: 'Intercorrência Removida',
-        message: `A intercorrência de ${nome} foi removida com sucesso.`,
-        type: 'success'
-      })
-      setModalIntercorrencia(false)
+      if (ok) {
+        showAlert({
+          title: 'Intercorrência Removida',
+          message: `A intercorrência de ${nome} foi removida com sucesso.`,
+          type: 'success'
+        })
+        setModalIntercorrencia(false)
+      }
     } finally {
       setSavingIntercorrencia(false)
     }
@@ -463,7 +471,7 @@ export function AgendasClient({
   }
 
   // Atualizar dados de um agendamento (Comparecimento, Cirurgia, Parecer)
-  const handleUpdateAgendamento = async (agendamentoId: string, payload: UpdateAgendamentoInput) => {
+  const handleUpdateAgendamento = async (agendamentoId: string, payload: UpdateAgendamentoInput): Promise<boolean> => {
     const res = await updateAgendamentoAction(agendamentoId, payload)
     if (res.success) {
       if (agendaDetalhada) {
@@ -471,8 +479,10 @@ export function AgendasClient({
         if (fresh.success) setAgendaDetalhada(fresh.data)
       }
       reloadAgendas()
+      return true
     } else {
-      showAlert({ title: 'Erro', message: res.error || 'Falha ao atualizar dados.', type: 'error' })
+      showAlert({ title: 'Erro ao Atualizar', message: res.error || 'Falha ao atualizar dados.', type: 'error' })
+      return false
     }
   }
 
@@ -492,16 +502,22 @@ export function AgendasClient({
       })
       if (!confirmed) return
 
-      await handleUpdateAgendamento(ag.id, {
-        cirurgia_realizada: false,
+      const statusRevertido = ag.data_cirurgia_agendada
+        ? 'CIRURGIA_AGENDADA'
+        : (ag.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO_PRE_OP')
+
+      const ok = await handleUpdateAgendamento(ag.id, {
+        cirurgia_realizada: null,
         data_cirurgia_execucao: null,
-        status_agendamento: ag.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO'
+        status_agendamento: statusRevertido
       })
-      showAlert({
-        title: 'Registro Revertido',
-        message: `A realização da cirurgia de ${nome} foi desfeita com sucesso. O paciente retornou para a lista de procedimentos agendados.`,
-        type: 'info'
-      })
+      if (ok) {
+        showAlert({
+          title: 'Registro Revertido',
+          message: `A realização da cirurgia de ${nome} foi desfeita com sucesso. O paciente retornou para a lista de procedimentos agendados.`,
+          type: 'info'
+        })
+      }
     } else {
       // EXIGIR A DATA DA CIRURGIA OBRIGATORIAMENTE!
       if (!ag.data_cirurgia_agendada) {
@@ -525,16 +541,18 @@ export function AgendasClient({
       })
       if (!confirmed) return
 
-      await handleUpdateAgendamento(ag.id, {
+      const ok = await handleUpdateAgendamento(ag.id, {
         cirurgia_realizada: true,
         data_cirurgia_execucao: ag.data_cirurgia_agendada,
         status_agendamento: 'CIRURGIA_REALIZADA'
       })
-      showAlert({
-        title: 'Cirurgia Confirmada',
-        message: `Cirurgia de ${nome} realizada em ${dataCirurgiaFmt} registrada com sucesso!`,
-        type: 'success'
-      })
+      if (ok) {
+        showAlert({
+          title: 'Cirurgia Confirmada',
+          message: `Cirurgia de ${nome} realizada em ${dataCirurgiaFmt} registrada com sucesso!`,
+          type: 'success'
+        })
+      }
     }
   }
 
@@ -555,15 +573,18 @@ export function AgendasClient({
       })
       if (!confirmed) return
 
-      await handleUpdateAgendamento(ag.id, {
+      const ok = await handleUpdateAgendamento(ag.id, {
         compareceu_consulta: null,
-        status_agendamento: 'AGENDADO'
+        data_consulta_realizada: null,
+        status_agendamento: 'AGENDADO_PRE_OP'
       })
-      showAlert({
-        title: 'Consulta Revertida',
-        message: `O status da consulta de ${nome} voltou para pendente.`,
-        type: 'info'
-      })
+      if (ok) {
+        showAlert({
+          title: 'Consulta Revertida',
+          message: `O status da consulta de ${nome} voltou para pendente.`,
+          type: 'info'
+        })
+      }
     } else {
       if (presenca) {
         const confirmed = await showConfirm({
@@ -575,10 +596,18 @@ export function AgendasClient({
         })
         if (!confirmed) return
 
-        await handleUpdateAgendamento(ag.id, {
+        const ok = await handleUpdateAgendamento(ag.id, {
           compareceu_consulta: true,
+          data_consulta_realizada: new Date().toISOString().split('T')[0],
           status_agendamento: 'CONSULTA_REALIZADA'
         })
+        if (ok) {
+          showAlert({
+            title: 'Presença Confirmada',
+            message: `Presença de ${nome} na consulta pré-operatória confirmada!`,
+            type: 'success'
+          })
+        }
       } else {
         const confirmed = await showConfirm({
           title: 'Confirmar Falta (Absenteísmo)',
@@ -589,10 +618,18 @@ export function AgendasClient({
         })
         if (!confirmed) return
 
-        await handleUpdateAgendamento(ag.id, {
+        const ok = await handleUpdateAgendamento(ag.id, {
           compareceu_consulta: false,
+          data_consulta_realizada: new Date().toISOString().split('T')[0],
           status_agendamento: 'ABSENTEISMO_CONSULTA'
         })
+        if (ok) {
+          showAlert({
+            title: 'Falta Registrada',
+            message: `Falta de ${nome} na consulta pré-operatória registrada no sistema.`,
+            type: 'warning'
+          })
+        }
       }
     }
   }
