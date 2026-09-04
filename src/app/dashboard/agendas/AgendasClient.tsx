@@ -279,6 +279,40 @@ export function AgendasClient({
     }
   }
 
+  const handleClearIntercorrencia = async () => {
+    if (!intercorrenciaAgendamento) return
+    const nome = intercorrenciaAgendamento.pacientes?.nome_usuario || 'o paciente'
+
+    const confirmed = await showConfirm({
+      title: 'Reverter / Limpar Intercorrência',
+      message: `Deseja remover a intercorrência registrada para ${nome}?\n\nO que o sistema fará:\n• Removerá o motivo de inaptidão ou suspensão.\n• Retornará o agendamento para o fluxo normal da agenda.\n\nDeseja continuar?`,
+      confirmText: 'Sim, Limpar Intercorrência',
+      cancelText: 'Cancelar',
+      variant: 'warning'
+    })
+    if (!confirmed) return
+
+    setSavingIntercorrencia(true)
+    try {
+      await handleUpdateAgendamento(intercorrenciaAgendamento.id, {
+        intercorrencia_tipo: null,
+        intercorrencia_descricao: null,
+        desfecho_execucao: null,
+        status_agendamento: intercorrenciaAgendamento.cirurgia_realizada
+          ? 'CIRURGIA_REALIZADA'
+          : (intercorrenciaAgendamento.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO')
+      })
+      showAlert({
+        title: 'Intercorrência Removida',
+        message: `A intercorrência de ${nome} foi removida com sucesso.`,
+        type: 'success'
+      })
+      setModalIntercorrencia(false)
+    } finally {
+      setSavingIntercorrencia(false)
+    }
+  }
+
   // Atualizar agendas quando filtros de período/hospital mudarem
   const reloadAgendas = async () => {
     const start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString().split('T')[0]
@@ -439,6 +473,113 @@ export function AgendasClient({
       reloadAgendas()
     } else {
       showAlert({ title: 'Erro', message: res.error || 'Falha ao atualizar dados.', type: 'error' })
+    }
+  }
+
+  // Confirmar ou reverter realização de cirurgia
+  const handleToggleCirurgiaRealizada = async (ag: any) => {
+    const nome = ag.pacientes?.nome_usuario || 'o paciente'
+    const isRealizada = ag.cirurgia_realizada === true
+
+    if (isRealizada) {
+      // Pedir confirmação para REVERTER
+      const confirmed = await showConfirm({
+        title: 'Reverter Cirurgia Realizada',
+        message: `A cirurgia de ${nome} consta como REALIZADA no sistema.\n\nO que acontecerá ao reverter:\n• O status do procedimento voltará para "AGENDADO" na fila SUS.\n• A confirmação de execução será cancelada.\n• O agendamento voltará a ficar pendente de execução.\n\nDeseja realmente desfazer e reverter este registro?`,
+        confirmText: 'Sim, Reverter Registro',
+        cancelText: 'Manter Realizada',
+        variant: 'warning'
+      })
+      if (!confirmed) return
+
+      await handleUpdateAgendamento(ag.id, {
+        cirurgia_realizada: false,
+        status_agendamento: ag.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO'
+      })
+      showAlert({
+        title: 'Registro Revertido',
+        message: `A realização da cirurgia de ${nome} foi desfeita com sucesso. O paciente retornou para a lista de procedimentos agendados.`,
+        type: 'info'
+      })
+    } else {
+      // Pedir confirmação para CONFIRMAR REALIZAÇÃO
+      const confirmed = await showConfirm({
+        title: 'Confirmar Realização de Cirurgia',
+        message: `Você está confirmando que a cirurgia de ${nome} foi REALIZADA COM SUCESSO.\n\nO que o sistema fará:\n• Concluirá a solicitação na fila como "PROCEDIMENTO REALIZADO".\n• Confirmará a execução médica e hospitalar no histórico do SUS.\n• Atualizará o fechamento e as estatísticas da sessão.\n\nDeseja confirmar a execução?`,
+        confirmText: 'Sim, Confirmar Cirurgia',
+        cancelText: 'Cancelar',
+        variant: 'success'
+      })
+      if (!confirmed) return
+
+      await handleUpdateAgendamento(ag.id, {
+        cirurgia_realizada: true,
+        status_agendamento: 'CIRURGIA_REALIZADA'
+      })
+      showAlert({
+        title: 'Cirurgia Confirmada',
+        message: `Procedimento cirúrgico de ${nome} registrado como realizado com sucesso!`,
+        type: 'success'
+      })
+    }
+  }
+
+  // Confirmar ou reverter presença/falta na consulta pré-operatória
+  const handleToggleConsulta = async (ag: any, presenca: boolean) => {
+    const nome = ag.pacientes?.nome_usuario || 'o paciente'
+    const isCurrent = ag.compareceu_consulta === presenca
+
+    if (isCurrent) {
+      // Clicou no botão já ativo -> Reverter para pendente
+      const label = presenca ? 'o comparecimento' : 'a falta'
+      const confirmed = await showConfirm({
+        title: 'Reverter Status da Consulta',
+        message: `Deseja desfazer ${label} de ${nome} na consulta pré-operatória e voltar para o status "Pendente"?`,
+        confirmText: 'Sim, Reverter',
+        cancelText: 'Cancelar',
+        variant: 'warning'
+      })
+      if (!confirmed) return
+
+      await handleUpdateAgendamento(ag.id, {
+        compareceu_consulta: null,
+        status_agendamento: 'AGENDADO'
+      })
+      showAlert({
+        title: 'Consulta Revertida',
+        message: `O status da consulta de ${nome} voltou para pendente.`,
+        type: 'info'
+      })
+    } else {
+      if (presenca) {
+        const confirmed = await showConfirm({
+          title: 'Confirmar Presença na Consulta',
+          message: `Deseja registrar que o paciente ${nome} COMPARECEU à consulta pré-operatória?\n\nO agendamento avançará para "CONSULTA REALIZADA".`,
+          confirmText: 'Sim, Compareceu',
+          cancelText: 'Cancelar',
+          variant: 'success'
+        })
+        if (!confirmed) return
+
+        await handleUpdateAgendamento(ag.id, {
+          compareceu_consulta: true,
+          status_agendamento: 'CONSULTA_REALIZADA'
+        })
+      } else {
+        const confirmed = await showConfirm({
+          title: 'Confirmar Falta (Absenteísmo)',
+          message: `Você está registrando que o paciente ${nome} FALTOU à consulta pré-operatória.\n\nIsso constará como absenteísmo na regulação.\n\nDeseja registrar a falta?`,
+          confirmText: 'Sim, Registrar Falta',
+          cancelText: 'Cancelar',
+          variant: 'danger'
+        })
+        if (!confirmed) return
+
+        await handleUpdateAgendamento(ag.id, {
+          compareceu_consulta: false,
+          status_agendamento: 'ABSENTEISMO_CONSULTA'
+        })
+      }
     }
   }
 
@@ -1439,21 +1580,27 @@ export function AgendasClient({
                                 <div className="flex gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateAgendamento(ag.id, { compareceu_consulta: true, status_agendamento: 'CONSULTA_REALIZADA' })}
+                                    onClick={() => handleToggleConsulta(ag, true)}
                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all ${
-                                      ag.compareceu_consulta === true ? 'bg-emerald-500 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                                      ag.compareceu_consulta === true
+                                        ? 'bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/50 hover:brightness-105'
+                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
                                     }`}
+                                    title={ag.compareceu_consulta === true ? 'Presença confirmada (Clique para reverter)' : 'Registrar comparecimento na consulta'}
                                   >
-                                    Compareceu
+                                    {ag.compareceu_consulta === true ? 'Compareceu ✓' : 'Compareceu'}
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateAgendamento(ag.id, { compareceu_consulta: false, status_agendamento: 'ABSENTEISMO_CONSULTA' })}
+                                    onClick={() => handleToggleConsulta(ag, false)}
                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all ${
-                                      ag.compareceu_consulta === false ? 'bg-red-500 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                                      ag.compareceu_consulta === false
+                                        ? 'bg-rose-500 text-white shadow-sm ring-1 ring-rose-400/50 hover:brightness-105'
+                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
                                     }`}
+                                    title={ag.compareceu_consulta === false ? 'Falta registrada (Clique para reverter)' : 'Registrar falta na consulta'}
                                   >
-                                    Faltou
+                                    {ag.compareceu_consulta === false ? 'Faltou ✕' : 'Faltou'}
                                   </button>
                                 </div>
                               </div>
@@ -1493,12 +1640,15 @@ export function AgendasClient({
                                 <div className="flex gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateAgendamento(ag.id, { cirurgia_realizada: true, status_agendamento: 'CIRURGIA_REALIZADA' })}
+                                    onClick={() => handleToggleCirurgiaRealizada(ag)}
                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all ${
-                                      ag.cirurgia_realizada === true ? 'bg-emerald-600 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                                      ag.cirurgia_realizada === true
+                                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50 hover:bg-emerald-700'
+                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
                                     }`}
+                                    title={ag.cirurgia_realizada === true ? 'Cirurgia marcada como realizada (Clique para reverter)' : 'Marcar cirurgia realizada com sucesso'}
                                   >
-                                    ✓ Operou com Sucesso
+                                    {ag.cirurgia_realizada === true ? '✓ Operou (Clique p/ Desfazer)' : '✓ Operou com Sucesso'}
                                   </button>
                                   <button
                                     type="button"
@@ -1506,6 +1656,7 @@ export function AgendasClient({
                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex-1 cursor-pointer transition-all border ${
                                       ag.intercorrencia_tipo ? 'bg-amber-500/20 text-amber-500 border-amber-500/40' : 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
                                     }`}
+                                    title="Registrar parecer de intercorrência, suspensão ou falta"
                                   >
                                     ⚠️ Intercorrência / Falta
                                   </button>
@@ -1870,6 +2021,26 @@ export function AgendasClient({
                 <span className="text-[9px] font-black uppercase text-muted-foreground">Paciente</span>
                 <p className="text-xs font-black uppercase text-foreground">{intercorrenciaAgendamento.pacientes?.nome_usuario}</p>
                 <p className="text-[10px] text-muted-foreground font-mono">SOL: {intercorrenciaAgendamento.cod_solicitacao}</p>
+              </div>
+
+              {intercorrenciaAgendamento.intercorrencia_tipo && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Intercorrência Vigente</span>
+                    <p className="text-xs font-bold text-foreground">{intercorrenciaAgendamento.intercorrencia_tipo.replace(/_/g, ' ')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearIntercorrencia}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-xs shrink-0"
+                  >
+                    Desfazer / Limpar
+                  </button>
+                </div>
+              )}
+
+              <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-[10px] text-muted-foreground leading-relaxed">
+                ℹ️ <strong>O que esta ação faz:</strong> Registra o laudo de inaptidão ou suspensão cirúrgica, informando o motivo à Central de Regulação e ajustando o status do agendamento.
               </div>
 
               <form onSubmit={handleSaveIntercorrencia} className="space-y-4">

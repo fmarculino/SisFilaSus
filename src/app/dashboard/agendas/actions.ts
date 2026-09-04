@@ -396,12 +396,17 @@ export async function updateAgendamentoAction(
     return { success: false, error: error.message }
   }
 
-  // Sincronizar status_interno na fila se cirurgia realizada ou cancelamento
+  // Sincronizar status_interno na fila se cirurgia realizada, revertida ou cancelamento
   if (data?.cod_solicitacao) {
     if (data.status_agendamento === 'CIRURGIA_REALIZADA') {
       await supabase
         .from('fila_solicitacoes')
         .update({ status_interno: 'PROCEDIMENTO_REALIZADO', execucao_confirmada: true })
+        .eq('cod_solicitacao', data.cod_solicitacao)
+    } else if (input.cirurgia_realizada === false) {
+      await supabase
+        .from('fila_solicitacoes')
+        .update({ status_interno: 'AGENDADO', execucao_confirmada: false })
         .eq('cod_solicitacao', data.cod_solicitacao)
     } else if (data.status_agendamento === 'DESISTENCIA_PACIENTE') {
       await supabase
