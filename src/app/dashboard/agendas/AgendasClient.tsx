@@ -494,6 +494,7 @@ export function AgendasClient({
 
       await handleUpdateAgendamento(ag.id, {
         cirurgia_realizada: false,
+        data_cirurgia_execucao: null,
         status_agendamento: ag.compareceu_consulta ? 'CONSULTA_REALIZADA' : 'AGENDADO'
       })
       showAlert({
@@ -502,10 +503,22 @@ export function AgendasClient({
         type: 'info'
       })
     } else {
+      // EXIGIR A DATA DA CIRURGIA OBRIGATORIAMENTE!
+      if (!ag.data_cirurgia_agendada) {
+        await showAlert({
+          title: 'Data da Cirurgia Obrigatória',
+          message: `Para registrar que a cirurgia de ${nome} foi realizada com sucesso, é obrigatório preencher o campo "DATA DA CIRURGIA" antes de confirmar.\n\nPor favor, informe a data em que o procedimento foi executado.`,
+          type: 'warning'
+        })
+        return
+      }
+
+      const dataCirurgiaFmt = new Date(ag.data_cirurgia_agendada + 'T00:00:00').toLocaleDateString('pt-BR')
+
       // Pedir confirmação para CONFIRMAR REALIZAÇÃO
       const confirmed = await showConfirm({
         title: 'Confirmar Realização de Cirurgia',
-        message: `Você está confirmando que a cirurgia de ${nome} foi REALIZADA COM SUCESSO.\n\nO que o sistema fará:\n• Concluirá a solicitação na fila como "PROCEDIMENTO REALIZADO".\n• Confirmará a execução médica e hospitalar no histórico do SUS.\n• Atualizará o fechamento e as estatísticas da sessão.\n\nDeseja confirmar a execução?`,
+        message: `Você está confirmando que a cirurgia de ${nome} foi REALIZADA COM SUCESSO.\n\n• Data da Cirurgia: ${dataCirurgiaFmt}\n• Concluirá a solicitação na fila como "PROCEDIMENTO REALIZADO".\n• Confirmará a execução médica e hospitalar no SUS.\n\nDeseja confirmar a execução?`,
         confirmText: 'Sim, Confirmar Cirurgia',
         cancelText: 'Cancelar',
         variant: 'success'
@@ -514,11 +527,12 @@ export function AgendasClient({
 
       await handleUpdateAgendamento(ag.id, {
         cirurgia_realizada: true,
+        data_cirurgia_execucao: ag.data_cirurgia_agendada,
         status_agendamento: 'CIRURGIA_REALIZADA'
       })
       showAlert({
         title: 'Cirurgia Confirmada',
-        message: `Procedimento cirúrgico de ${nome} registrado como realizado com sucesso!`,
+        message: `Cirurgia de ${nome} realizada em ${dataCirurgiaFmt} registrada com sucesso!`,
         type: 'success'
       })
     }
@@ -1623,12 +1637,23 @@ export function AgendasClient({
 
                               {/* Data Marcada da Cirurgia */}
                               <div className="space-y-1">
-                                <label className="block text-[8px] font-black uppercase text-muted-foreground">Data da Cirurgia</label>
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-[8px] font-black uppercase text-muted-foreground">Data da Cirurgia</label>
+                                  {!ag.data_cirurgia_agendada && (
+                                    <span className="text-[7px] font-black text-amber-500 uppercase tracking-widest">
+                                      Obrigatória
+                                    </span>
+                                  )}
+                                </div>
                                 <input
                                   type="date"
                                   value={ag.data_cirurgia_agendada || ''}
                                   onChange={(e) => handleUpdateAgendamento(ag.id, { data_cirurgia_agendada: e.target.value, status_agendamento: 'CIRURGIA_AGENDADA' })}
-                                  className="block w-full rounded-lg border border-border/50 bg-background/50 py-1 px-2 text-[10px] outline-none focus:border-primary text-foreground font-mono"
+                                  className={`block w-full rounded-lg border py-1 px-2 text-[10px] outline-none transition-all font-mono ${
+                                    !ag.data_cirurgia_agendada
+                                      ? 'border-amber-500/40 bg-amber-500/5 focus:border-amber-500 text-foreground'
+                                      : 'border-border/50 bg-background/50 focus:border-primary text-foreground'
+                                  }`}
                                 />
                               </div>
                             </div>
