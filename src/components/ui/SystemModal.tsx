@@ -156,30 +156,39 @@ export function SystemModalProvider({ children }: { children: React.ReactNode })
       {/* Alert Modal Portal */}
       {alertState.open && (
         <Portal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bento-card max-w-md w-full p-6 md:p-8 space-y-6 shadow-2xl border-border animate-in zoom-in-95 duration-200">
-              <div className="flex items-start gap-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="relative max-w-md w-full rounded-3xl bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200 overflow-hidden">
+              {/* Top Accent Strip */}
+              <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+                alertState.type === 'success' ? 'bg-emerald-500' :
+                alertState.type === 'error' ? 'bg-rose-500' :
+                alertState.type === 'warning' ? 'bg-amber-500' :
+                'bg-sky-500'
+              }`} />
+
+              <div className="flex items-start gap-4 pt-1">
                 <div className={`p-3 rounded-2xl border shrink-0 ${
-                  alertState.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20' :
-                  alertState.type === 'error' ? 'bg-rose-500/10 border-rose-500/20' :
-                  alertState.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20' :
-                  'bg-sky-500/10 border-sky-500/20'
+                  alertState.type === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' :
+                  alertState.type === 'error' ? 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400' :
+                  alertState.type === 'warning' ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400' :
+                  'bg-sky-500/15 border-sky-500/30 text-sky-600 dark:text-sky-400'
                 }`}>
                   {getAlertIcon(alertState.type)}
                 </div>
 
-                <div className="flex-1 space-y-1 pr-2">
+                <div className="flex-1 space-y-1.5 pr-2">
                   <h3 className="text-sm font-black uppercase tracking-wider text-foreground">
                     {alertState.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-foreground/80 dark:text-foreground/90 font-medium leading-relaxed whitespace-pre-line">
                     {alertState.message}
                   </p>
                 </div>
 
                 <button
                   onClick={handleCloseAlert}
-                  className="text-muted-foreground hover:text-foreground p-1 transition-colors cursor-pointer rounded-lg hover:bg-muted/50"
+                  className="text-muted-foreground hover:text-foreground p-1.5 transition-colors cursor-pointer rounded-xl hover:bg-muted/80 border border-transparent hover:border-border/50"
+                  aria-label="Fechar"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -189,11 +198,11 @@ export function SystemModalProvider({ children }: { children: React.ReactNode })
                 <button
                   type="button"
                   onClick={handleCloseAlert}
-                  className={`w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all cursor-pointer ${
-                    alertState.type === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' :
-                    alertState.type === 'error' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' :
-                    alertState.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20' :
-                    'bg-primary hover:bg-primary/90 shadow-primary/20'
+                  className={`w-full sm:w-auto px-7 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all cursor-pointer hover:brightness-110 active:scale-95 ${
+                    alertState.type === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30' :
+                    alertState.type === 'error' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30' :
+                    alertState.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30' :
+                    'bg-primary hover:bg-primary/90 shadow-primary/30'
                   }`}
                 >
                   {alertState.buttonText}
@@ -207,23 +216,31 @@ export function SystemModalProvider({ children }: { children: React.ReactNode })
       {/* Confirm Modal Portal */}
       {confirmState.open && (
         <Portal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bento-card max-w-md w-full p-6 md:p-8 space-y-6 shadow-2xl border-border animate-in zoom-in-95 duration-200">
-              <div className="flex items-start gap-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="relative max-w-md w-full rounded-3xl bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200 overflow-hidden">
+              {/* Top Accent Strip */}
+              <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+                confirmState.variant === 'danger' ? 'bg-rose-500' :
+                confirmState.variant === 'warning' ? 'bg-amber-500' :
+                confirmState.variant === 'success' ? 'bg-emerald-500' :
+                'bg-primary'
+              }`} />
+
+              <div className="flex items-start gap-4 pt-1">
                 <div className={`p-3 rounded-2xl border shrink-0 ${
-                  confirmState.variant === 'danger' ? 'bg-rose-500/10 border-rose-500/20' :
-                  confirmState.variant === 'warning' ? 'bg-amber-500/10 border-amber-500/20' :
-                  confirmState.variant === 'success' ? 'bg-emerald-500/10 border-emerald-500/20' :
-                  'bg-primary/10 border-primary/20'
+                  confirmState.variant === 'danger' ? 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400' :
+                  confirmState.variant === 'warning' ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400' :
+                  confirmState.variant === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' :
+                  'bg-primary/15 border-primary/30 text-primary'
                 }`}>
                   {getConfirmIcon(confirmState.variant)}
                 </div>
 
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 space-y-1.5">
                   <h3 className="text-sm font-black uppercase tracking-wider text-foreground">
                     {confirmState.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-foreground/80 dark:text-foreground/90 font-medium leading-relaxed whitespace-pre-line">
                     {confirmState.message}
                   </p>
                 </div>
@@ -233,18 +250,18 @@ export function SystemModalProvider({ children }: { children: React.ReactNode })
                 <button
                   type="button"
                   onClick={() => handleConfirmChoice(false)}
-                  className="px-5 py-3 rounded-xl border border-border/50 bg-background/50 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-all cursor-pointer"
+                  className="px-5 py-3 rounded-xl border border-border/80 bg-muted/40 text-xs font-black uppercase tracking-widest text-foreground hover:bg-muted hover:border-border transition-all cursor-pointer shadow-xs"
                 >
                   {confirmState.cancelText}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleConfirmChoice(true)}
-                  className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all cursor-pointer ${
-                    confirmState.variant === 'danger' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' :
-                    confirmState.variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20' :
-                    confirmState.variant === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' :
-                    'bg-primary hover:bg-primary/90 shadow-primary/20'
+                  className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all cursor-pointer hover:brightness-110 active:scale-95 ${
+                    confirmState.variant === 'danger' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30' :
+                    confirmState.variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30' :
+                    confirmState.variant === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30' :
+                    'bg-primary hover:bg-primary/90 shadow-primary/30'
                   }`}
                 >
                   {confirmState.confirmText}

@@ -627,22 +627,23 @@ export function ConfiguracoesClient({
 
         {/* Modal de Teste SMTP */}
         {showSmtpTestModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bento-card max-w-md w-full p-6 space-y-5 border-border">
-              <div className="flex items-center justify-between border-b border-border/10 pb-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="relative max-w-md w-full rounded-3xl bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] p-6 md:p-8 space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border/20 pb-3">
                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
                   <span>Testar Conexão SMTP de E-mail</span>
                 </h3>
                 <button
                   onClick={() => setShowSmtpTestModal(false)}
-                  className="text-muted-foreground hover:text-foreground text-xs"
+                  className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted/80 transition-colors"
+                  aria-label="Fechar"
                 >
                   ✕
                 </button>
               </div>
 
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="text-xs text-foreground/80 dark:text-foreground/90 font-medium leading-relaxed">
                 Insira o e-mail que receberá a mensagem de teste enviada através do servidor SMTP configurado.
               </p>
 
@@ -655,7 +656,7 @@ export function ConfiguracoesClient({
                   placeholder="ex: informatica.sms@maraba.pa.gov.br"
                   value={testSmtpEmail}
                   onChange={(e) => setTestSmtpEmail(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-mono"
+                  className="block w-full rounded-2xl border border-border bg-background py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
                 />
               </div>
 
@@ -663,7 +664,7 @@ export function ConfiguracoesClient({
                 <button
                   type="button"
                   onClick={() => setShowSmtpTestModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-border/50 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground"
+                  className="px-4 py-2.5 rounded-xl border border-border/80 bg-muted/40 text-[10px] font-black uppercase tracking-wider text-foreground hover:bg-muted hover:border-border transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -671,7 +672,7 @@ export function ConfiguracoesClient({
                   type="button"
                   onClick={handleTestSmtp}
                   disabled={testingSmtp}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20 transition-all cursor-pointer"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>{testingSmtp ? 'Enviando...' : 'Enviar E-mail de Teste'}</span>
@@ -683,22 +684,23 @@ export function ConfiguracoesClient({
 
         {/* Modal de Teste WhatsApp */}
         {showWaTestModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bento-card max-w-md w-full p-6 space-y-5 border-border">
-              <div className="flex items-center justify-between border-b border-border/10 pb-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="relative max-w-md w-full rounded-3xl bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] p-6 md:p-8 space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border/20 pb-3">
                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-primary" />
                   <span>Testar Disparo de WhatsApp</span>
                 </h3>
                 <button
                   onClick={() => setShowWaTestModal(false)}
-                  className="text-muted-foreground hover:text-foreground text-xs"
+                  className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted/80 transition-colors"
+                  aria-label="Fechar"
                 >
                   ✕
                 </button>
               </div>
 
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="text-xs text-foreground/80 dark:text-foreground/90 font-medium leading-relaxed">
                 Insira um número de telefone celular com DDD (ex: 94981001122 ou 5594981001122) para receber a mensagem de teste.
               </p>
 
@@ -711,7 +713,7 @@ export function ConfiguracoesClient({
                   placeholder="ex: 94981034808"
                   value={testWaPhone}
                   onChange={(e) => setTestWaPhone(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-mono"
+                  className="block w-full rounded-2xl border border-border bg-background py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
                 />
               </div>
 
@@ -719,7 +721,7 @@ export function ConfiguracoesClient({
                 <button
                   type="button"
                   onClick={() => setShowWaTestModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-border/50 text-[10px] font-black uppercase text-muted-foreground hover:text-foreground"
+                  className="px-4 py-2.5 rounded-xl border border-border/80 bg-muted/40 text-[10px] font-black uppercase tracking-wider text-foreground hover:bg-muted hover:border-border transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -727,7 +729,7 @@ export function ConfiguracoesClient({
                   type="button"
                   onClick={handleTestWhatsApp}
                   disabled={testingWa}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20 transition-all cursor-pointer"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>{testingWa ? 'Enviando...' : 'Enviar Mensagem'}</span>

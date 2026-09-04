@@ -1315,11 +1315,11 @@ export function AgendasClient({
         <Portal>
           <div className="fixed inset-0 z-50 overflow-hidden">
             <div
-              className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity"
               onClick={() => setDrawerAgendaOpen(false)}
             />
             <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-              <div className="w-screen max-w-3xl bg-card border-l border-border/40 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
+              <div className="w-screen max-w-3xl bg-card text-card-foreground border-l border-border/60 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
                 
                 {/* Header do Drawer */}
                 <div className="p-6 md:p-8 border-b border-border/10 flex items-center justify-between bg-muted/10">
@@ -1544,11 +1544,11 @@ export function AgendasClient({
         <Portal>
           <div className="fixed inset-0 z-50 overflow-hidden">
             <div
-              className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity"
               onClick={() => setDrawerAlocarOpen(false)}
             />
             <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-              <div className="w-screen max-w-2xl bg-card border-l border-border/40 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
+              <div className="w-screen max-w-2xl bg-card text-card-foreground border-l border-border/60 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
                 
                 {/* Header */}
                 <div className="p-6 border-b border-border/10 flex items-center justify-between bg-primary/5">
@@ -1669,10 +1669,10 @@ export function AgendasClient({
         <Portal>
           <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
             <div
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
               onClick={() => setModalNovaAgenda(false)}
             />
-            <div className="relative w-full max-w-lg bg-card border border-border/40 shadow-2xl rounded-3xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-lg bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] rounded-3xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
               
               <div className="flex items-center justify-between border-b border-border/10 pb-4">
                 <div className="flex items-center gap-3">
@@ -1843,10 +1843,10 @@ export function AgendasClient({
         <Portal>
           <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
             <div
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
               onClick={() => setModalIntercorrencia(false)}
             />
-            <div className="relative w-full max-w-lg bg-card border border-border/40 shadow-2xl rounded-3xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-lg bg-card text-card-foreground border border-border/80 shadow-[0_25px_70px_rgba(0,0,0,0.3)] rounded-3xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
               
               <div className="flex items-center justify-between border-b border-border/10 pb-4">
                 <div className="flex items-center gap-3">

@@ -227,8 +227,8 @@ export function EspecialidadesClient({ role, email, initialEspecialidades }: Esp
         {/* Modal de Criação / Edição */}
         {modalOpen && (
           <Portal>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="relative w-full max-w-lg rounded-3xl border border-border/50 bg-card p-6 md:p-8 shadow-2xl space-y-6">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="relative w-full max-w-lg rounded-3xl border border-border/80 bg-card text-card-foreground p-6 md:p-8 shadow-[0_25px_70px_rgba(0,0,0,0.3)] space-y-6 animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between border-b border-border/10 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">

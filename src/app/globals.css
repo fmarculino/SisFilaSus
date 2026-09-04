@@ -130,11 +130,11 @@
 }
 
 .bento-card {
-  @apply bg-card/40 backdrop-blur-xl border border-border/40 rounded-[2.5rem] shadow-xl transition-all duration-500;
+  @apply bg-card/90 dark:bg-card/80 backdrop-blur-xl border border-border/60 rounded-[2.5rem] shadow-xl transition-all duration-500;
 }
 
 .bento-card:hover {
-  @apply shadow-2xl shadow-primary/5 -translate-y-1 border-primary/20 bg-card/60;
+  @apply shadow-2xl shadow-primary/5 -translate-y-1 border-primary/30 bg-card;
 }
 
 .animate-in {

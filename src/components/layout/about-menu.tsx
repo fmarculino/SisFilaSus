@@ -19,12 +19,12 @@ export function AboutMenu() {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 min-h-screen w-screen overflow-hidden">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-background/80 backdrop-blur-md transition-opacity duration-300 animate-in fade-in"
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
         onClick={() => setIsOpen(false)}
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-border/50 bg-card shadow-[0_0_100px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-border/80 bg-card text-card-foreground shadow-[0_25px_70px_rgba(0,0,0,0.3)] animate-in zoom-in-95 duration-300">
         {/* Background decoration */}
         <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-br from-primary/15 via-transparent to-transparent pointer-events-none" />
         

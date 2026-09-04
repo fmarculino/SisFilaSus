@@ -501,11 +501,11 @@ export function PacientesClient({
         <Portal>
           <div className="fixed inset-0 z-50 overflow-hidden">
           <div 
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300"
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setModalOpen(false)}
           />
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-xl bg-card border-l border-border/40 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
+            <div className="w-screen max-w-xl bg-card text-card-foreground border-l border-border/60 shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-350">
               
               {/* Header */}
               <div className="p-6 md:p-8 border-b border-border/10 flex items-center justify-between">
