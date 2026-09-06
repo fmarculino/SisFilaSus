@@ -105,9 +105,12 @@ O portal público permite que o paciente consulte sua posição na fila de esper
 ### 📁 Estrutura de Diretórios:
 ```
 SisFilaSus/
-├── doc/                        # Manuais e documentações técnicas
+├── docs/                       # Manuais e documentações técnicas
+├── docs/evolucao/              # Relatórios datados de evolução do sistema
 ├── public/                     # Assets estáticos
-├── scratch/                    # Scripts de migração, views e triggers SQL
+├── supabase/migrations/        # Migrações SQL versionadas (ordem cronológica)
+├── supabase/legacy/            # Scripts SQL históricos / superados
+├── scripts/                    # Scripts utilitários (Node/PowerShell)
 ├── src/
 │   ├── app/                    # Rotas, APIs e páginas da aplicação
 │   ├── components/             # Componentes de layout e UI
@@ -208,9 +211,9 @@ SisFilaSus/
 
 **Views com `security_invoker`:**
 - Todas as 8 views do sistema (`vw_dashboard_kpis`, `vw_dashboard_top_procedimentos`, `vw_dashboard_risco`, `vw_dashboard_evolucao`, `vw_relatorio_espera_procedimento`, `vw_relatorio_espera_risco`, `vw_relatorio_produtividade_operador`, `vw_relatorio_status_distribuicao`) foram atualizadas para usar `WITH (security_invoker = true)`, garantindo que as consultas respeitem as políticas de RLS do usuário autenticado.
-- Script de correção: `scratch/fix_security_invoker_views.sql`
+- Script de correção: `supabase/migrations/20260607010810_fix_security_invoker_views.sql`
 
 **Funções com `search_path` explícito:**
 - As 7 funções do banco (`apply_fila_movement`, `get_user_role`, `get_user_cnes_vinculo`, `preserve_status_interno`, `handle_new_user`, `update_updated_at_column`, `process_audit_log`) receberam `SET search_path = public, pg_temp` para mitigar o risco de *search_path hijacking*.
-- Script de correção: `scratch/fix_security_functions_search_path.sql`
+- Script de correção: `supabase/migrations/20260607010800_fix_security_functions_search_path.sql`
 

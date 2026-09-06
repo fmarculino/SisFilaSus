@@ -5,14 +5,14 @@ O **SisFilaSus** é um sistema desenvolvido para a Secretaria Municipal de Saúd
 ---
 
 ## 📂 Índice de Documentação do Projeto
-Toda a documentação operacional e técnica detalhada está organizada na pasta [doc/](file:///c:/Users/Cliente/Projetos/SisFilaSus/doc/):
+Toda a documentação operacional e técnica detalhada está organizada na pasta [docs/](docs/):
 
-1. **[Documentação Geral do Sistema](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/documentacao_sistema.md)**: Visão de escopo, arquitetura do projeto, fluxo de importação e stack tecnológica.
-2. **[Central de Agendamentos & Cirurgias Eletivas](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/central_agendamentos_e_cirurgias.md)**: Guia operacional do módulo de agendamento (Calendário, Kanban, Planilha e Fechamento SISREG), Portal do Prestador e Múltiplos Telefones.
-3. **[Manual do Coordenador e Administrador](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/manual_coordenador.md)**: Guia de gerenciamento de usuários, upload de arquivos SISREG, triagem e aprovação de movimentações e visualização de logs de auditoria.
-4. **[Manual do Operador e Regulador](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/manual_operador.md)**: Instruções para uso da fila, filtros, drawers de detalhes, modelos de mensagem e convocação ativa via WhatsApp.
-5. **[Arquitetura e Fluxo de Dados](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/arquitetura_fluxos.md)**: Detalhamento técnico da modelagem de banco de dados, triggers Postgres, views, políticas de RLS e diff de auditoria.
-6. **[Guia Técnico: Comunicação & Autenticação SSR](file:///c:/Users/SMS-NTI/Projetos/sisfilasus/doc/GUIA_INTEGRACAO_COMUNICACAO_E_AUTH.md)**: Guia completo sobre disparo por WhatsApp AstraCalls API (trabalho do 9º dígito), e-mail transacional SMTP e fluxo de recuperação de senha.
+1. **[Documentação Geral do Sistema](docs/documentacao_sistema.md)**: Visão de escopo, arquitetura do projeto, fluxo de importação e stack tecnológica.
+2. **[Central de Agendamentos & Cirurgias Eletivas](docs/central_agendamentos_e_cirurgias.md)**: Guia operacional do módulo de agendamento (Calendário, Kanban, Planilha e Fechamento SISREG), Portal do Prestador e Múltiplos Telefones.
+3. **[Manual do Coordenador e Administrador](docs/manual_coordenador.md)**: Guia de gerenciamento de usuários, upload de arquivos SISREG, triagem e aprovação de movimentações e visualização de logs de auditoria.
+4. **[Manual do Operador e Regulador](docs/manual_operador.md)**: Instruções para uso da fila, filtros, drawers de detalhes, modelos de mensagem e convocação ativa via WhatsApp.
+5. **[Arquitetura e Fluxo de Dados](docs/arquitetura_fluxos.md)**: Detalhamento técnico da modelagem de banco de dados, triggers Postgres, views, políticas de RLS e diff de auditoria.
+6. **[Guia Técnico: Comunicação & Autenticação SSR](docs/GUIA_INTEGRACAO_COMUNICACAO_E_AUTH.md)**: Guia completo sobre disparo por WhatsApp AstraCalls API (trabalho do 9º dígito), e-mail transacional SMTP e fluxo de recuperação de senha.
 
 ---
 

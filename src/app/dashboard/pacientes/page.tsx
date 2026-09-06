@@ -74,22 +74,24 @@ export default async function PacientesPage({
     .order('nome_usuario', { ascending: true })
     .range(offset, offset + limit - 1)
 
-  const { data: pacientes, count } = await query
+  // A lista de municipios do filtro vem da tabela oficial `municipios` (63
+  // linhas), buscada em paralelo com a pagina de pacientes.
+  //
+  // A versao anterior fazia `from('pacientes').select('municipio_origem')` SEM
+  // filtro e SEM limite, apenas para descobrir os municipios distintos: isso
+  // pedia as 58.235 linhas da tabela a cada carregamento da tela. Alem do
+  // custo, o resultado era errado — o PostgREST corta a resposta em 1000 linhas
+  // (db-max-rows), entao o dropdown so refletia os municipios que por acaso
+  // aparecessem nos primeiros 1000 pacientes. Mesma armadilha do SisEscala.
+  const [pacientesRes, municipiosRes] = await Promise.all([
+    query,
+    supabase.from('municipios').select('nome').order('nome').limit(2000),
+  ])
 
-  // Buscar municípios únicos e cadastrados na tabela oficial
-  const { data: dbCities } = await supabase
-    .from('pacientes')
-    .select('municipio_origem')
-
-  const { data: dbMunicipiosTable } = await supabase
-    .from('municipios')
-    .select('nome')
+  const { data: pacientes, count } = pacientesRes
 
   const municipios = Array.from(
-    new Set([
-      ...(dbMunicipiosTable || []).map(m => m.nome?.trim().toUpperCase()),
-      ...(dbCities || []).map(p => p.municipio_origem?.trim().toUpperCase())
-    ])
+    new Set((municipiosRes.data || []).map(m => m.nome?.trim().toUpperCase()))
   ).filter(Boolean).sort() as string[]
 
   return (

@@ -86,6 +86,11 @@ export default async function FilaPage({
       procedimentos!inner (cod_sigtap, desc_sigtap, grupo_descricao),
       municipios (codigo_ibge, nome),
       unidades_solicitantes (cnes, nome)
+    // NOTA DE PERFORMANCE: count 'exact' custa ~230 ms por carregamento nesta
+    // tabela (97 mil linhas), pois obriga o Postgres a contar todas as linhas
+    // que casam com o filtro. Trocar por 'estimated' elimina esse custo, mas
+    // passa a exibir totais aproximados na paginacao. Mantido 'exact' por ser
+    // uma decisao de negocio: ver docs/evolucao/2026-09-05-auditoria-de-performance.md
     `, { count: 'exact' })
     .eq('active', true)
 
@@ -182,28 +187,43 @@ export default async function FilaPage({
 
   query = query.range(offset, offset + limit - 1)
 
-  const { data: solicitacoes, count } = await query
+  // As opcoes dos filtros nao dependem do resultado da fila: sao buscadas em
+  // paralelo com ela, e nao mais em sequencia. Antes, as cinco consultas de
+  // apoio rodavam uma apos a outra, somando o tempo de ida e volta de cada uma
+  // ao tempo total de renderizacao da pagina.
+  //
+  // O limite explicito de 2000 substitui o limite implicito de 1000 linhas do
+  // PostgREST (db-max-rows): sem ele, a lista de procedimentos era truncada em
+  // silencio e o filtro simplesmente deixava de oferecer parte das opcoes.
+  const [
+    filaRes,
+    procedimentosRes,
+    municipiosRes,
+    unidadesRes,
+    especialidadesRes,
+  ] = await Promise.all([
+    query,
+    supabase
+      .from('procedimentos')
+      .select('cod_sigtap, desc_sigtap, grupo_descricao')
+      .order('desc_sigtap')
+      .limit(2000),
+    supabase.from('municipios').select('codigo_ibge, nome').order('nome').limit(2000),
+    supabase.from('unidades_solicitantes').select('cnes, nome').order('nome').limit(2000),
+    supabase.from('especialidades').select('nome').eq('active', true).limit(2000),
+  ])
 
-  // Buscar opções de filtros dinamicamente
-  const { data: dbProcedimentos } = await supabase.from('procedimentos').select('cod_sigtap, desc_sigtap').order('desc_sigtap')
-  const { data: dbMunicipios } = await supabase.from('municipios').select('codigo_ibge, nome').order('nome')
-  const { data: dbUnidades } = await supabase.from('unidades_solicitantes').select('cnes, nome').order('nome')
+  const { data: solicitacoes, count } = filaRes
+  const dbProcedimentos = procedimentosRes.data
+  const dbMunicipios = municipiosRes.data
+  const dbUnidades = unidadesRes.data
 
-  // Buscar especialidades cadastradas e dos procedimentos
-  const { data: dbEspecialidadesTable } = await supabase
-    .from('especialidades')
-    .select('nome')
-    .eq('active', true)
-
-  const { data: dbEspecialidadesProc } = await supabase
-    .from('procedimentos')
-    .select('grupo_descricao')
-    .not('grupo_descricao', 'is', null)
-
+  // grupo_descricao ja veio junto de procedimentos — a segunda varredura
+  // completa da tabela apenas para montar esta lista era desnecessaria.
   const especialidades = Array.from(
     new Set([
-      ...(dbEspecialidadesTable || []).map(e => e.nome?.trim()),
-      ...(dbEspecialidadesProc || []).map(p => p.grupo_descricao?.trim())
+      ...(especialidadesRes.data || []).map(e => e.nome?.trim()),
+      ...(dbProcedimentos || []).map(p => p.grupo_descricao?.trim())
     ])
   ).filter(Boolean).sort() as string[]
 

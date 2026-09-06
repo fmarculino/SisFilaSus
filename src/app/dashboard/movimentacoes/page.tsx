@@ -48,6 +48,10 @@ export default async function MovimentacoesPage() {
       )
     `)
     .order('created_at', { ascending: false })
+    // Sem limite explicito o PostgREST aplica o corte silencioso de 1000 linhas
+    // (db-max-rows) e a tela passaria a esconder movimentacoes sem avisar
+    // ninguem. O limite declarado torna o teto visivel e previsivel.
+    .limit(500)
 
   if (error) {
     console.error('Error fetching movements:', error)

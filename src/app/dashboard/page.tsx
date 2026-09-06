@@ -42,15 +42,28 @@ export default async function DashboardPage() {
       .limit(10)
   ])
 
-  const kpis = kpisRes.data || { 
-    fila_total_ativa: 0, 
-    aguardando_consultas: 0, 
-    aguardando_exames: 0, 
-    aguardando_cirurgias: 0, 
-    demais_procedimentos: 0, 
-    media_espera_anos: 0, 
-    contatos_hoje: 0 
+  // Falha de consulta (tipicamente statement timeout, SQLSTATE 57014) NAO pode
+  // ser confundida com "fila vazia". Antes, o fallback `|| {zeros}` fazia o
+  // dashboard exibir 0 em todos os KPIs sempre que o banco estourava o tempo,
+  // dando a impressao de que o sistema tinha perdido os dados.
+  const kpisIndisponivel = !!kpisRes.error || !kpisRes.data
+  if (kpisRes.error) {
+    console.error('[dashboard] falha ao carregar vw_dashboard_kpis:', kpisRes.error)
   }
+
+  const kpis = kpisRes.data || {
+    fila_total_ativa: 0,
+    aguardando_consultas: 0,
+    aguardando_exames: 0,
+    aguardando_cirurgias: 0,
+    demais_procedimentos: 0,
+    media_espera_anos: 0,
+    contatos_hoje: 0
+  }
+
+  // Renderiza um numero ou um marcador de indisponibilidade, nunca um zero falso.
+  const kpiNum = (valor: number) =>
+    kpisIndisponivel ? '—' : Number(valor).toLocaleString('pt-BR')
   const topProcedimentos = topProcedsRes.data || []
   const riscoData = riscoRes.data || []
   const evolucaoData = (evolucaoRes.data || []).map((item: any) => ({
@@ -96,11 +109,34 @@ export default async function DashboardPage() {
               Aqui está a visão geral da regulação de consultas, exames e cirurgias eletivas de Marabá.
             </p>
           </div>
-          <div className="flex items-center gap-2 bg-muted/40 backdrop-blur-md rounded-2xl border border-border/30 px-4 py-2 w-fit">
-            <Activity className="h-4 w-4 text-primary animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sistema Operacional</span>
-          </div>
+          {kpisIndisponivel ? (
+            <div className="flex items-center gap-2 bg-rose-500/10 backdrop-blur-md rounded-2xl border border-rose-500/30 px-4 py-2 w-fit">
+              <AlertCircle className="h-4 w-4 text-rose-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-500">Indicadores Indisponíveis</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-muted/40 backdrop-blur-md rounded-2xl border border-border/30 px-4 py-2 w-fit">
+              <Activity className="h-4 w-4 text-primary animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sistema Operacional</span>
+            </div>
+          )}
         </div>
+
+        {kpisIndisponivel && (
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+            <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-black uppercase tracking-widest text-rose-500">
+                Não foi possível carregar os indicadores
+              </p>
+              <p className="text-muted-foreground mt-1 font-semibold">
+                A consulta ao banco excedeu o tempo limite. Os números exibidos como
+                &ldquo;—&rdquo; não significam fila vazia: os dados continuam preservados.
+                Atualize a página em alguns instantes.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Bento Grid dos Indicadores Principais (KPIs) */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -114,7 +150,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.fila_total_ativa.toLocaleString('pt-BR')}
+                {kpiNum(kpis.fila_total_ativa)}
               </span>
               <div className="text-[9px] text-teal-500 font-black uppercase tracking-widest mt-2">
                 Pacientes aguardando
@@ -135,7 +171,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.aguardando_consultas.toLocaleString('pt-BR')}
+                {kpiNum(kpis.aguardando_consultas)}
               </span>
               <div className="text-[9px] text-indigo-500 font-black uppercase tracking-widest mt-2">
                 Consultas agendadas/fila
@@ -156,7 +192,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.aguardando_exames.toLocaleString('pt-BR')}
+                {kpiNum(kpis.aguardando_exames)}
               </span>
               <div className="text-[9px] text-cyan-500 font-black uppercase tracking-widest mt-2">
                 Exames e procedimentos
@@ -177,7 +213,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.aguardando_cirurgias.toLocaleString('pt-BR')}
+                {kpiNum(kpis.aguardando_cirurgias)}
               </span>
               <div className="text-[9px] text-teal-500 font-black uppercase tracking-widest mt-2">
                 Eletivas de internação
@@ -198,7 +234,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.demais_procedimentos.toLocaleString('pt-BR')}
+                {kpiNum(kpis.demais_procedimentos)}
               </span>
               <div className="text-[9px] text-amber-500 font-black uppercase tracking-widest mt-2">
                 Outras especialidades
@@ -219,7 +255,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {Number(kpis.media_espera_anos).toFixed(1).replace('.', ',')}
+                {kpisIndisponivel ? '—' : Number(kpis.media_espera_anos).toFixed(1).replace('.', ',')}
               </span>
               <span className="text-lg font-black text-foreground ml-1">anos</span>
               <div className="text-[9px] text-rose-500 font-black uppercase tracking-widest mt-2">
@@ -241,7 +277,7 @@ export default async function DashboardPage() {
             </div>
             <div>
               <span className="text-4xl font-black text-foreground tracking-tighter">
-                {kpis.contatos_hoje.toLocaleString('pt-BR')}
+                {kpiNum(kpis.contatos_hoje)}
               </span>
               <div className="text-[9px] text-emerald-500 font-black uppercase tracking-widest mt-2">
                 Busca ativa concluída hoje
@@ -278,7 +314,8 @@ export default async function DashboardPage() {
                       <div className="flex items-center justify-between text-xs font-bold">
                         <span className="text-foreground uppercase truncate pr-4">{index + 1}. {proc.desc_sigtap.trim()}</span>
                         <span className="text-muted-foreground font-mono shrink-0">
-                          {proc.total.toLocaleString('pt-BR')} ({percent.toFixed(1).replace('.', ',')}%)
+                          {proc.total.toLocaleString('pt-BR')}
+                          {!kpisIndisponivel && ` (${percent.toFixed(1).replace('.', ',')}%)`}
                         </span>
                       </div>
                       <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden">

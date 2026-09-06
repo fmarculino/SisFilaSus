@@ -25,33 +25,6 @@ export default async function AgendasPage() {
     redirect('/dashboard')
   }
 
-  // Buscar prestadores ativos
-  const { data: prestadores } = await supabase
-    .from('hospitais_prestadores')
-    .select('id, cnes, nome, especialidades')
-    .eq('active', true)
-    .order('nome')
-
-  // Buscar médicos cadastrados ativos
-  const { data: medicos } = await supabase
-    .from('medicos')
-    .select('id, nome, crm, uf_crm, especialidade_id, especialidade_nome, hospital_id')
-    .eq('active', true)
-    .order('nome')
-
-  // Buscar especialidades ativas
-  const { data: especialidades } = await supabase
-    .from('especialidades')
-    .select('id, nome')
-    .eq('active', true)
-    .order('nome')
-
-  // Buscar templates de mensagem ativos
-  const { data: templates } = await supabase
-    .from('templates_mensagem')
-    .select('id, titulo, corpo')
-    .eq('active', true)
-
   // Buscar agendas do mês atual
   const today = new Date()
   const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0]
@@ -90,7 +63,47 @@ export default async function AgendasPage() {
     query = query.eq('hospital_id', userHospitalId)
   }
 
-  const { data: agendas } = await query
+  // As quatro listas de apoio nao dependem umas das outras nem da consulta de
+  // agendas: sao carregadas em paralelo com ela. Antes rodavam em sequencia,
+  // somando cinco idas e voltas ao banco antes de a pagina comecar a renderizar.
+  const [
+    agendasRes,
+    prestadoresRes,
+    medicosRes,
+    especialidadesRes,
+    templatesRes,
+  ] = await Promise.all([
+    query,
+    supabase
+      .from('hospitais_prestadores')
+      .select('id, cnes, nome, especialidades')
+      .eq('active', true)
+      .order('nome')
+      .limit(1000),
+    supabase
+      .from('medicos')
+      .select('id, nome, crm, uf_crm, especialidade_id, especialidade_nome, hospital_id')
+      .eq('active', true)
+      .order('nome')
+      .limit(1000),
+    supabase
+      .from('especialidades')
+      .select('id, nome')
+      .eq('active', true)
+      .order('nome')
+      .limit(1000),
+    supabase
+      .from('templates_mensagem')
+      .select('id, titulo, corpo')
+      .eq('active', true)
+      .limit(200),
+  ])
+
+  const agendas = agendasRes.data
+  const prestadores = prestadoresRes.data
+  const medicos = medicosRes.data
+  const especialidades = especialidadesRes.data
+  const templates = templatesRes.data
 
   return (
     <AgendasClient

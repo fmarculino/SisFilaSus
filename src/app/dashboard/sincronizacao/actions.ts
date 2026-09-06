@@ -23,6 +23,8 @@ export async function fetchDivergenciasAction() {
     `)
     .eq('resolvido', false)
     .order('created_at', { ascending: false })
+    // Teto explicito no lugar do corte silencioso de 1000 linhas do PostgREST.
+    .limit(500)
 
   if (error) {
     console.error('Erro ao buscar divergências:', error.message)

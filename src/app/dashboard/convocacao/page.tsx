@@ -25,7 +25,9 @@ export default async function ConvocacaoPage() {
   }
 
   // Buscar solicitações cuja convocação está em andamento (EM_CONVOCACAO ou SEM_CONTATO)
-  const { data: solicitacoes } = await supabase
+  // As duas consultas sao independentes e rodam em paralelo.
+  const [solicitacoesRes, templatesRes] = await Promise.all([
+    supabase
     .from('fila_solicitacoes')
     .select(`
       cod_solicitacao,
@@ -44,12 +46,20 @@ export default async function ConvocacaoPage() {
     .eq('active', true)
     .in('status_interno', ['EM_CONVOCACAO', 'SEM_CONTATO'])
     .order('posicao_fila', { ascending: true, nullsFirst: false })
+    // Teto explicito: sem ele o PostgREST corta em 1000 linhas sem avisar,
+    // e a lista de busca ativa esconderia pacientes silenciosamente.
+    .limit(500),
 
-  // Buscar templates de mensagem ativos
-  const { data: templates } = await supabase
-    .from('templates_mensagem')
-    .select('id, titulo, corpo')
-    .eq('active', true)
+    // Buscar templates de mensagem ativos
+    supabase
+      .from('templates_mensagem')
+      .select('id, titulo, corpo')
+      .eq('active', true)
+      .limit(200),
+  ])
+
+  const solicitacoes = solicitacoesRes.data
+  const templates = templatesRes.data
 
   return (
     <ConvocacaoClient 
