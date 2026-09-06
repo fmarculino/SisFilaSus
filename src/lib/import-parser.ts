@@ -282,28 +282,36 @@ export async function parseAndImportCSV(
     if (error) throw new Error(`Erro ao salvar CIDs: ${error.message}`)
   }
 
-  // Upsert de Pacientes em lotes de 1000
+  // Upsert de Pacientes em lotes de 1000 já retornando id diretamente
+  const patientMap = new Map<string, string>()
   if (pacientesArray.length > 0) {
     for (let j = 0; j < pacientesArray.length; j += 1000) {
       const chunk = pacientesArray.slice(j, j + 1000)
-      const { error } = await supabase.from('pacientes').upsert(chunk, { onConflict: 'cns_usuario' })
+      const { data, error } = await supabase
+        .from('pacientes')
+        .upsert(chunk, { onConflict: 'cns_usuario' })
+        .select('id, cns_usuario')
       if (error) throw new Error(`Erro ao salvar pacientes: ${error.message}`)
+      if (data) {
+        data.forEach(p => patientMap.set(p.cns_usuario, p.id))
+      }
     }
   }
 
-  // 5. Mapear cns_usuario para id (UUID) do Paciente
+  // 5. Mapear eventuais cns_usuario faltantes (fallback de segurança em lotes de 1000)
   const cnsList = Array.from(pacientesMap.keys())
-  const patientMap = new Map<string, string>()
-
-  for (let j = 0; j < cnsList.length; j += 100) {
-    const chunk = cnsList.slice(j, j + 100)
-    const { data, error } = await supabase
-      .from('pacientes')
-      .select('id, cns_usuario')
-      .in('cns_usuario', chunk)
-    if (error) throw new Error(`Erro ao mapear IDs de pacientes: ${error.message}`)
-    if (data) {
-      data.forEach(p => patientMap.set(p.cns_usuario, p.id))
+  const missingCns = cnsList.filter(cns => !patientMap.has(cns))
+  if (missingCns.length > 0) {
+    for (let j = 0; j < missingCns.length; j += 1000) {
+      const chunk = missingCns.slice(j, j + 1000)
+      const { data, error } = await supabase
+        .from('pacientes')
+        .select('id, cns_usuario')
+        .in('cns_usuario', chunk)
+      if (error) throw new Error(`Erro ao mapear IDs de pacientes: ${error.message}`)
+      if (data) {
+        data.forEach(p => patientMap.set(p.cns_usuario, p.id))
+      }
     }
   }
 
@@ -355,18 +363,27 @@ export async function parseAndImportCSV(
       ultima_importacao_id: importLote.id
     }))
 
-    // Obter quais destes já existem no banco
+    // Obter quais destes já existem no banco (em sub-lotes de 200 em paralelo para respeitar limites de URI)
     const idsChunk = chunk.map(c => c.cod_solicitacao)
     const existentesSet = new Set<number>()
     
-    for (let k = 0; k < idsChunk.length; k += 100) {
-      const subChunk = idsChunk.slice(k, k + 100)
-      const { data: existentes } = await supabase
-        .from('fila_solicitacoes')
-        .select('cod_solicitacao')
-        .in('cod_solicitacao', subChunk)
-      if (existentes) {
-        existentes.forEach(e => existentesSet.add(e.cod_solicitacao))
+    const subBatches: number[][] = []
+    for (let k = 0; k < idsChunk.length; k += 200) {
+      subBatches.push(idsChunk.slice(k, k + 200))
+    }
+
+    const checkResults = await Promise.all(
+      subBatches.map(sub =>
+        supabase
+          .from('fila_solicitacoes')
+          .select('cod_solicitacao')
+          .in('cod_solicitacao', sub)
+      )
+    )
+
+    for (const res of checkResults) {
+      if (res.data) {
+        res.data.forEach(e => existentesSet.add(e.cod_solicitacao))
       }
     }
     
@@ -381,49 +398,55 @@ export async function parseAndImportCSV(
     const { error } = await supabase.from('fila_solicitacoes').upsert(chunkWithImportLote, { onConflict: 'cod_solicitacao' })
     if (error) throw new Error(`Erro ao salvar solicitações na fila: ${error.message}`)
 
-    // Registrar snapshots de posição para esse lote
-    const snapshotsBatch = chunk.map(item => ({
-      cod_solicitacao: item.cod_solicitacao,
-      importacao_id: importLote.id,
-      posicao_fila: item.posicao_fila,
-      classificacao_risco: item.classificacao_risco
-    }))
+    // Registrar snapshots de posição para esse lote (apenas se houver posição na fila, poupando inserts desnecessários)
+    const snapshotsBatch = chunk
+      .filter(item => item.posicao_fila !== null && item.posicao_fila !== undefined)
+      .map(item => ({
+        cod_solicitacao: item.cod_solicitacao,
+        importacao_id: importLote.id,
+        posicao_fila: item.posicao_fila,
+        classificacao_risco: item.classificacao_risco
+      }))
 
-    const { error: snapError } = await supabase.from('fila_snapshots').insert(snapshotsBatch)
-    if (snapError) console.error(`Aviso: Falha ao inserir snapshots: ${snapError.message}`)
+    if (snapshotsBatch.length > 0) {
+      const { error: snapError } = await supabase.from('fila_snapshots').insert(snapshotsBatch)
+      if (snapError) console.error(`Aviso: Falha ao inserir snapshots: ${snapError.message}`)
+    }
   }
 
   // 9. Identificar registros ausentes (que estavam ativos antes e não constam no arquivo atual)
-  // Como a importação pode ser parcial (por tipo de procedimento ou filtro do SISREG),
-  // identificamos registros ausentes baseados nas mesmas especialidades importadas.
-  const codProcedimentosImportados = Array.from(procedimentosMap.keys())
+  // Apenas para relatórios de Internação/Fila Eletiva.
+  // Relatórios ambulatoriais contêm apenas agendamentos e não representam a fila de espera.
   let ausentes = 0
 
-  if (codProcedimentosImportados.length > 0) {
-    // Buscar quantidade de solicitações ativas do mesmo tipo que não constam neste lote (apenas nos status de fila e contato iniciais)
-    const { count, error: countError } = await supabase
-      .from('fila_solicitacoes')
-      .select('*', { count: 'exact', head: true })
-      .eq('active', true)
-      .in('cod_sigtap', codProcedimentosImportados)
-      .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
-      .or(`ultima_importacao_id.neq.${importLote.id},ultima_importacao_id.is.null`)
-
-    if (countError) console.error('Erro ao contar ausentes:', countError)
-    ausentes = count || 0
-
-    if (ausentes > 0) {
-      // Marcar status_interno como NÃO ENCONTRADO NO SISREG (mas sem desativar a flag 'active' automaticamente)
-      // Apenas para registros que ainda estão no ciclo inicial de fila (NA_FILA, EM_CONVOCACAO, SEM_CONTATO)
-      const { error: updateError } = await supabase
+  if (!isAmbulatorial) {
+    const codProcedimentosImportados = Array.from(procedimentosMap.keys())
+    if (codProcedimentosImportados.length > 0) {
+      // Buscar quantidade de solicitações ativas do mesmo tipo que não constam neste lote (apenas nos status de fila e contato iniciais)
+      const { count, error: countError } = await supabase
         .from('fila_solicitacoes')
-        .update({ status_interno: 'NAO_ENCONTRADO_SISREG' })
+        .select('*', { count: 'exact', head: true })
         .eq('active', true)
         .in('cod_sigtap', codProcedimentosImportados)
         .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
         .or(`ultima_importacao_id.neq.${importLote.id},ultima_importacao_id.is.null`)
 
-      if (updateError) console.error('Erro ao atualizar ausentes:', updateError)
+      if (countError) console.error('Erro ao contar ausentes:', countError)
+      ausentes = count || 0
+
+      if (ausentes > 0) {
+        // Marcar status_interno como NÃO ENCONTRADO NO SISREG (mas sem desativar a flag 'active' automaticamente)
+        // Apenas para registros que ainda estão no ciclo inicial de fila (NA_FILA, EM_CONVOCACAO, SEM_CONTATO)
+        const { error: updateError } = await supabase
+          .from('fila_solicitacoes')
+          .update({ status_interno: 'NAO_ENCONTRADO_SISREG' })
+          .eq('active', true)
+          .in('cod_sigtap', codProcedimentosImportados)
+          .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
+          .or(`ultima_importacao_id.neq.${importLote.id},ultima_importacao_id.is.null`)
+
+        if (updateError) console.error('Erro ao atualizar ausentes:', updateError)
+      }
     }
   }
 

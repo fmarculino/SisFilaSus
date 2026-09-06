@@ -51,12 +51,22 @@ export function ImportacaoClient({ role, email }: { role: string; email: string 
         }),
       })
 
-      const data = await res.json()
-
       if (!res.ok) {
-        throw new Error(data.error || 'Ocorreu um erro ao processar a importação.')
+        let errorMsg = `Erro no servidor (${res.status} ${res.statusText})`
+        try {
+          const errData = await res.json()
+          if (errData?.error) errorMsg = errData.error
+        } catch {
+          if (res.status === 502 || res.status === 504) {
+            errorMsg = 'Tempo limite esgotado no servidor. O arquivo pode ser muito extenso ou o lote ainda está sendo concluído.'
+          } else if (res.status === 413) {
+            errorMsg = 'O arquivo selecionado excede o tamanho máximo permitido.'
+          }
+        }
+        throw new Error(errorMsg)
       }
 
+      const data = await res.json()
       setStats(data)
     } catch (err: any) {
       setError(err.message || 'Falha de comunicação com o servidor.')
