@@ -23,10 +23,14 @@ export default function PortalCidadaoPage() {
     setResult(null)
 
     try {
-      const data = await searchCitizenWaitlist(identifier)
-      setResult(data)
+      const response = await searchCitizenWaitlist(identifier)
+      if (!response.success) {
+        setError(response.error || 'Nenhum registro localizado para o documento informado.')
+      } else {
+        setResult(response.data)
+      }
     } catch (err: any) {
-      setError(err.message || 'Erro ao realizar a busca.')
+      setError('Não foi possível completar a consulta no momento. Por favor, tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -145,11 +149,11 @@ export default function PortalCidadaoPage() {
           </div>
         </div>
 
-        {/* Erro */}
+        {/* Mensagem de Aviso / Erro */}
         {error && (
-          <div className="flex gap-3 p-4 bg-rose-500/5 text-rose-500 border border-rose-500/20 rounded-2xl text-xs font-semibold leading-relaxed">
-            <AlertTriangle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
+          <div className="flex items-start gap-3 p-4 bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/30 rounded-2xl text-xs font-medium leading-relaxed shadow-sm animate-in fade-in">
+            <Info className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <span className="flex-1">{error}</span>
           </div>
         )}
 
