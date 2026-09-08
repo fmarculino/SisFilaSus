@@ -40,6 +40,8 @@ interface Paciente {
   endereco: string | null
   municipio_origem: string | null
   observacoes: string | null
+  unidade_referencia_cnes?: string | null
+  unidade_referencia?: { cnes: string; nome: string } | null
   pacientes_telefones?: TelefoneDB[]
 }
 
@@ -52,7 +54,9 @@ interface PacientesClientProps {
   currentPage: number
   searchParam: string
   municipioParam: string
+  unidadeReferenciaParam?: string
   municipios: string[]
+  unidades?: Array<{ cnes: string; nome: string }>
 }
 
 export function PacientesClient({
@@ -64,7 +68,9 @@ export function PacientesClient({
   currentPage,
   searchParam,
   municipioParam,
-  municipios
+  unidadeReferenciaParam = '',
+  municipios,
+  unidades = []
 }: PacientesClientProps) {
   const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
@@ -73,6 +79,7 @@ export function PacientesClient({
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes)
   const [search, setSearch] = useState(searchParam)
   const [selectedMunicipio, setSelectedMunicipio] = useState(municipioParam)
+  const [selectedUnidadeRef, setSelectedUnidadeRef] = useState(unidadeReferenciaParam)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | undefined>(undefined)
 
@@ -88,6 +95,10 @@ export function PacientesClient({
     setSelectedMunicipio(municipioParam)
   }, [municipioParam])
 
+  useEffect(() => {
+    setSelectedUnidadeRef(unidadeReferenciaParam)
+  }, [unidadeReferenciaParam])
+
   // Campos do Formulário
   const [nome, setNome] = useState('')
   const [cns, setCns] = useState('')
@@ -97,6 +108,7 @@ export function PacientesClient({
   const [mae, setMae] = useState('')
   const [endereco, setEndereco] = useState('')
   const [municipio, setMunicipio] = useState('MARABA')
+  const [unidadeReferencia, setUnidadeReferencia] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -107,6 +119,14 @@ export function PacientesClient({
       label: m
     }))
   }, [municipios])
+
+  // Opções para SearchableSelect de Unidades de Referência (APS)
+  const unidadeOptions = useMemo(() => {
+    return (unidades || []).map(u => ({
+      value: u.cnes,
+      label: u.nome
+    }))
+  }, [unidades])
 
   // Telefones (novo sistema multi-telefone)
   const [telefones, setTelefones] = useState<TelefoneData[]>([])
@@ -146,6 +166,7 @@ export function PacientesClient({
     setMae('')
     setEndereco('')
     setMunicipio('MARABA')
+    setUnidadeReferencia('')
     setObservacoes('')
     setTelefones([])
     setModalOpen(true)
@@ -161,6 +182,7 @@ export function PacientesClient({
     setMae(p.nome_mae || '')
     setEndereco(p.endereco || '')
     setMunicipio(p.municipio_origem || 'MARABA')
+    setUnidadeReferencia(p.unidade_referencia_cnes || '')
     setObservacoes(p.observacoes || '')
     setModalOpen(true)
 
@@ -194,6 +216,7 @@ export function PacientesClient({
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (selectedMunicipio) params.set('municipio', selectedMunicipio)
+    if (selectedUnidadeRef) params.set('unidadeReferencia', selectedUnidadeRef)
     params.set('page', '1')
     params.set('limit', itemsPerPage.toString())
     router.push(`${pathname}?${params.toString()}`)
@@ -202,6 +225,7 @@ export function PacientesClient({
   const handleClearSearch = () => {
     setSearch('')
     setSelectedMunicipio('')
+    setSelectedUnidadeRef('')
     router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
   }
 
@@ -249,7 +273,8 @@ export function PacientesClient({
         telefone_2: telefonesAtivos[1]?.numero.replace(/\D/g, '') || null,
         endereco: endereco || null,
         municipio_origem: municipio || null,
-        observacoes: observacoes || null
+        observacoes: observacoes || null,
+        unidade_referencia_cnes: unidadeReferencia || null
       })
 
       if (!res.success) throw new Error(res.error)
@@ -393,7 +418,7 @@ export function PacientesClient({
               </div>
             </div>
 
-            <div className="group w-full sm:w-64">
+            <div className="group w-full sm:w-56">
               <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Município</label>
               <SearchableSelect
                 options={municipioOptions}
@@ -401,6 +426,18 @@ export function PacientesClient({
                 onChange={(val) => setSelectedMunicipio(val)}
                 placeholder="Todos os Municípios"
                 searchPlaceholder="Buscar município..."
+                buttonClassName="rounded-2xl py-3.5"
+              />
+            </div>
+
+            <div className="group w-full sm:w-64">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Unidade de Referência (APS)</label>
+              <SearchableSelect
+                options={unidadeOptions}
+                value={selectedUnidadeRef}
+                onChange={(val) => setSelectedUnidadeRef(val)}
+                placeholder="Todas as Unidades"
+                searchPlaceholder="Buscar UBS/USF..."
                 buttonClassName="rounded-2xl py-3.5"
               />
             </div>
@@ -435,6 +472,7 @@ export function PacientesClient({
                   <th className="py-5 px-6">CPF</th>
                   <th className="py-5 px-6">Idade (Nascimento)</th>
                   <th className="py-5 px-6">Telefones</th>
+                  <th className="py-5 px-6">Unidade Referência (APS)</th>
                   <th className="py-5 px-6">Município</th>
                   <th className="py-5 px-6 text-right">Ações</th>
                 </tr>
@@ -442,7 +480,7 @@ export function PacientesClient({
               <tbody className="divide-y divide-border/10 text-xs font-semibold">
                 {pacientes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground font-bold">
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground font-bold">
                       Nenhum paciente localizado na base de dados.
                     </td>
                   </tr>
@@ -467,6 +505,15 @@ export function PacientesClient({
                       </td>
                       <td className="py-4 px-6">
                         {renderPhoneColumn(p)}
+                      </td>
+                      <td className="py-4 px-6">
+                        {p.unidade_referencia?.nome ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 max-w-[200px] truncate" title={p.unidade_referencia.nome}>
+                            {p.unidade_referencia.nome}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/40 italic">Não definida</span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-muted-foreground uppercase">{p.municipio_origem || 'MARABA'}</td>
                       <td className="py-4 px-6 text-right">
@@ -640,6 +687,24 @@ export function PacientesClient({
                     searchPlaceholder="Buscar município..."
                     buttonClassName="rounded-2xl py-3.5 font-bold uppercase"
                   />
+                </div>
+
+                {/* Unidade de Referência Territorial (APS) */}
+                <div className="group">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">
+                    Unidade de Referência (UBS da Família / APS)
+                  </label>
+                  <SearchableSelect
+                    options={unidadeOptions}
+                    value={unidadeReferencia}
+                    onChange={(val) => setUnidadeReferencia(val || '')}
+                    placeholder="Selecione a UBS de Cobertura..."
+                    searchPlaceholder="Buscar UBS/Posto de Saúde..."
+                    buttonClassName="rounded-2xl py-3.5 font-bold uppercase"
+                  />
+                  <span className="text-[9px] text-muted-foreground/60 px-1 mt-1 block">
+                    UBS ou Centro de Saúde que atende o bairro do paciente na Atenção Primária.
+                  </span>
                 </div>
 
                 {/* Endereço */}

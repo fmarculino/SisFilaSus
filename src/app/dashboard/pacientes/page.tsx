@@ -10,6 +10,7 @@ export default async function PacientesPage({
     limit?: string
     search?: string
     municipio?: string
+    unidadeReferencia?: string
   }>
 }) {
   const supabase = await createClient()
@@ -41,7 +42,7 @@ export default async function PacientesPage({
 
   let query = supabase
     .from('pacientes')
-    .select('*, pacientes_telefones(id, numero, tipo, status, prioridade, nome_contato, parentesco, observacoes)', { count: 'exact' })
+    .select('*, unidade_referencia:unidades_solicitantes(cnes, nome), pacientes_telefones(id, numero, tipo, status, prioridade, nome_contato, parentesco, observacoes)', { count: 'exact' })
 
   // Filtro de busca (Nome, CNS ou CPF)
   if (resolvedParams.search) {
@@ -69,23 +70,19 @@ export default async function PacientesPage({
     query = query.eq('municipio_origem', resolvedParams.municipio)
   }
 
+  if (resolvedParams.unidadeReferencia) {
+    query = query.eq('unidade_referencia_cnes', resolvedParams.unidadeReferencia)
+  }
+
   // Ordenar alfabeticamente
   query = query
     .order('nome_usuario', { ascending: true })
     .range(offset, offset + limit - 1)
 
-  // A lista de municipios do filtro vem da tabela oficial `municipios` (63
-  // linhas), buscada em paralelo com a pagina de pacientes.
-  //
-  // A versao anterior fazia `from('pacientes').select('municipio_origem')` SEM
-  // filtro e SEM limite, apenas para descobrir os municipios distintos: isso
-  // pedia as 58.235 linhas da tabela a cada carregamento da tela. Alem do
-  // custo, o resultado era errado — o PostgREST corta a resposta em 1000 linhas
-  // (db-max-rows), entao o dropdown so refletia os municipios que por acaso
-  // aparecessem nos primeiros 1000 pacientes. Mesma armadilha do SisEscala.
-  const [pacientesRes, municipiosRes] = await Promise.all([
+  const [pacientesRes, municipiosRes, unidadesRes] = await Promise.all([
     query,
     supabase.from('municipios').select('nome').order('nome').limit(2000),
+    supabase.from('unidades_solicitantes').select('cnes, nome').order('nome').limit(2000),
   ])
 
   const { data: pacientes, count } = pacientesRes
@@ -104,7 +101,9 @@ export default async function PacientesPage({
       currentPage={page}
       searchParam={resolvedParams.search || ''}
       municipioParam={resolvedParams.municipio || ''}
+      unidadeReferenciaParam={resolvedParams.unidadeReferencia || ''}
       municipios={municipios}
+      unidades={unidadesRes.data || []}
     />
   )
 }

@@ -17,6 +17,7 @@ export async function savePacienteAction(
     endereco: string | null
     municipio_origem: string | null
     observacoes: string | null
+    unidade_referencia_cnes?: string | null
   }
 ) {
   const supabase = await createClient()
@@ -68,7 +69,8 @@ export async function savePacienteAction(
     telefone_2: formData.telefone_2 ? formData.telefone_2.trim() : null,
     endereco: formData.endereco ? formData.endereco.trim() : null,
     municipio_origem: formData.municipio_origem ? formData.municipio_origem.trim().toUpperCase() : null,
-    observacoes: formData.observacoes ? formData.observacoes.trim() : null
+    observacoes: formData.observacoes ? formData.observacoes.trim() : null,
+    unidade_referencia_cnes: formData.unidade_referencia_cnes ? formData.unidade_referencia_cnes.trim() : null
   }
 
   if (id) {

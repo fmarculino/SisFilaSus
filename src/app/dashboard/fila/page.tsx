@@ -21,6 +21,7 @@ export default async function FilaPage({
     sort?: string
     order?: string
     unidade?: string
+    unidadeReferencia?: string
   }>
 }) {
   const supabase = await createClient()
@@ -82,7 +83,10 @@ export default async function FilaPage({
       chave_confirmacao,
       nome_executante,
       estimativa_atendimento_paciente,
-      pacientes!inner (id, nome_usuario, cns_usuario, cpf_usuario, data_nascimento, sexo, nome_mae, telefone_1, telefone_2, endereco, municipio_origem, observacoes),
+      pacientes!inner (
+        id, nome_usuario, cns_usuario, cpf_usuario, data_nascimento, sexo, nome_mae, telefone_1, telefone_2, endereco, municipio_origem, observacoes, unidade_referencia_cnes,
+        unidade_referencia:unidades_solicitantes(cnes, nome)
+      ),
       procedimentos!inner (cod_sigtap, desc_sigtap, grupo_descricao),
       municipios (codigo_ibge, nome),
       unidades_solicitantes (cnes, nome)
@@ -140,6 +144,10 @@ export default async function FilaPage({
 
   if (resolvedParams.unidade) {
     query = query.eq('cnes_solicitante', resolvedParams.unidade)
+  }
+
+  if (resolvedParams.unidadeReferencia) {
+    query = query.eq('pacientes.unidade_referencia_cnes', resolvedParams.unidadeReferencia)
   }
 
   if (resolvedParams.risco) {
@@ -246,6 +254,7 @@ export default async function FilaPage({
         proced: resolvedParams.proced || '',
         municipio: resolvedParams.municipio || '',
         unidade: resolvedParams.unidade || '',
+        unidadeReferencia: resolvedParams.unidadeReferencia || '',
         risco: resolvedParams.risco || '',
         status: resolvedParams.status || '',
         tipo: resolvedParams.tipo || '',

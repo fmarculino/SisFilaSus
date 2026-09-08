@@ -54,6 +54,7 @@ interface FilaClientProps {
     proced: string
     municipio: string
     unidade: string
+    unidadeReferencia?: string
     risco: string
     status: string
     tipo: string
@@ -89,6 +90,7 @@ export function FilaClient({
   const [proced, setProced] = useState(appliedFilters.proced)
   const [municipio, setMunicipio] = useState(appliedFilters.municipio)
   const [unidade, setUnidade] = useState(appliedFilters.unidade || '')
+  const [unidadeReferencia, setUnidadeReferencia] = useState(appliedFilters.unidadeReferencia || '')
   const [risco, setRisco] = useState(appliedFilters.risco)
   const [status, setStatus] = useState(appliedFilters.status)
   const [tipo, setTipo] = useState(appliedFilters.tipo)
@@ -184,6 +186,7 @@ export function FilaClient({
     if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
     if (unidade) params.set('unidade', unidade)
+    if (unidadeReferencia) params.set('unidadeReferencia', unidadeReferencia)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
@@ -211,6 +214,7 @@ export function FilaClient({
     if (modalidade) params.set('modalidade', modalidade)
     if (municipio) params.set('municipio', municipio)
     if (unidade) params.set('unidade', unidade)
+    if (unidadeReferencia) params.set('unidadeReferencia', unidadeReferencia)
     if (risco) params.set('risco', risco)
     if (status) params.set('status', status)
     if (tipo) params.set('tipo', tipo)
@@ -240,6 +244,7 @@ export function FilaClient({
     setModalidade('')
     setMunicipio('')
     setUnidade('')
+    setUnidadeReferencia('')
     setRisco('')
     setStatus('')
     setTipo('')
@@ -691,7 +696,20 @@ export function FilaClient({
                   value={unidade}
                   onChange={(val) => setUnidade(val)}
                   placeholder="Todas as Unidades"
-                  searchPlaceholder="Buscar unidade por nome ou CNES..."
+                  searchPlaceholder="Buscar unidade solicitante (SISREG)..."
+                  buttonClassName="rounded-2xl py-3.5"
+                />
+              </div>
+
+              {/* Unidade de Referência Territorial (APS) com Busca Incremental */}
+              <div className="group">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Unidade de Referência (APS)</label>
+                <SearchableSelect
+                  options={unidadeOptions}
+                  value={unidadeReferencia}
+                  onChange={(val) => setUnidadeReferencia(val)}
+                  placeholder="Todas as Unidades"
+                  searchPlaceholder="Buscar UBS/USF de cobertura..."
                   buttonClassName="rounded-2xl py-3.5"
                 />
               </div>
@@ -882,7 +900,14 @@ export function FilaClient({
                       <td className="py-4 px-6">
                         <div className="flex flex-col">
                           <span className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{sol.pacientes.nome_usuario}</span>
-                          <span className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">CNS: {sol.pacientes.cns_usuario}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground/60 font-mono">CNS: {sol.pacientes.cns_usuario}</span>
+                            {sol.pacientes.unidade_referencia?.nome && (
+                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 max-w-[170px] truncate" title={`Unidade de Referência (APS): ${sol.pacientes.unidade_referencia.nome}`}>
+                                Ref: {sol.pacientes.unidade_referencia.nome}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="py-4 px-6 max-w-xs truncate">
@@ -988,6 +1013,18 @@ export function FilaClient({
                     <div>
                       <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Nome da Mãe:</span>
                       <p className="font-bold text-foreground mt-0.5 uppercase">{selectedSol.pacientes.nome_mae || 'Não informado'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Unidade Solicitante (SISREG):</span>
+                      <p className="font-bold text-foreground mt-0.5 uppercase">
+                        {selectedSol.unidades_solicitantes?.nome || 'Não informada'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Unidade de Referência (APS / Domicílio):</span>
+                      <p className="font-bold text-primary mt-0.5 uppercase">
+                        {selectedSol.pacientes.unidade_referencia?.nome || 'Não definida'}
+                      </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground font-bold uppercase tracking-wider text-[9px]">Data da Solicitação:</span>
