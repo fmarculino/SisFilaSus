@@ -42,6 +42,11 @@ interface Paciente {
   observacoes: string | null
   unidade_referencia_cnes?: string | null
   unidade_referencia?: { cnes: string; nome: string } | null
+  unidades_solicitantes?: { cnes: string; nome: string } | null
+  data_atualizacao_esus?: string | null
+  equipe_saude_nome?: string | null
+  equipe_saude_ine?: string | null
+  microarea?: string | null
   pacientes_telefones?: TelefoneDB[]
 }
 
@@ -490,7 +495,23 @@ export function PacientesClient({
                       <td className="py-4 px-6 font-mono text-muted-foreground">
                         {p.cns_usuario.substring(0, 3)} {p.cns_usuario.substring(3, 7)} {p.cns_usuario.substring(7, 11)} {p.cns_usuario.substring(11)}
                       </td>
-                      <td className="py-4 px-6 font-bold text-foreground text-sm uppercase">{p.nome_usuario}</td>
+                      <td className="py-4 px-6">
+                        <div className="font-bold text-foreground text-sm uppercase">{p.nome_usuario}</div>
+                        {(p.equipe_saude_nome || p.data_atualizacao_esus) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {p.equipe_saude_nome && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-400 font-medium">
+                                👥 {p.equipe_saude_nome} {p.microarea ? `(Micro: ${p.microarea})` : ''}
+                              </span>
+                            )}
+                            {p.data_atualizacao_esus && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/60 text-[9px] text-muted-foreground font-mono">
+                                e-SUS: {new Date(p.data_atualizacao_esus + 'T12:00:00Z').toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-4 px-6 font-mono text-muted-foreground">
                         {p.cpf_usuario 
                           ? `${p.cpf_usuario.substring(0, 3)}.${p.cpf_usuario.substring(3, 6)}.${p.cpf_usuario.substring(6, 9)}-${p.cpf_usuario.substring(9)}`
@@ -730,6 +751,45 @@ export function PacientesClient({
                     placeholder="Ex: Paciente possui alergia a dipirona."
                   />
                 </div>
+
+                {/* Vínculo Territorial e-SUS */}
+                {editingId && (() => {
+                  const currentP = pacientes.find(p => p.id === editingId)
+                  const uNome = currentP?.unidade_referencia?.nome || currentP?.unidades_solicitantes?.nome
+                  if (!uNome && !currentP?.equipe_saude_nome && !currentP?.data_atualizacao_esus) return null
+
+                  return (
+                    <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                        <span>📍 Vínculo Territorial e-SUS (Atenção Primária)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                        {uNome && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block font-bold uppercase">UBS de Referência</span>
+                            <span className="font-semibold text-foreground">{uNome}</span>
+                          </div>
+                        )}
+                        {currentP?.equipe_saude_nome && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block font-bold uppercase">Equipe de Saúde</span>
+                            <span className="font-semibold text-foreground">
+                              {currentP.equipe_saude_nome} {currentP.microarea ? `(Microárea: ${currentP.microarea})` : ''}
+                            </span>
+                          </div>
+                        )}
+                        {currentP?.data_atualizacao_esus && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block font-bold uppercase">Última Atualização e-SUS</span>
+                            <span className="font-mono text-emerald-500 font-bold">
+                              {new Date(currentP.data_atualizacao_esus + 'T12:00:00Z').toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Form Actions */}
                 <div className="flex gap-3 pt-6 border-t border-border/10">

@@ -4,7 +4,30 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.8.0] — 2026-08-29 (Atual)
+## [0.9.0] — 2026-09-11 (Atual)
+### Adicionado
+* **Base Territorial Municipal e-SUS (`esus_cadastros`)**:
+  * Criação da tabela `esus_cadastros` para armazenamento e consolidação territorial contínua de todos os cidadãos do município cadastrados na Atenção Primária.
+  * Preservação histórica de dados com contador de atualizações (`total_atualizacoes`) e controle de versão de telefones em formato estruturado (JSONB).
+* **Enriquecimento Automático e Ciclo Contínuo com o SISREG**:
+  * **Regra Estrita de Não-Inclusão**: Cidadãos do e-SUS nunca são incluídos como novos pacientes na fila do SisFilaSUS se não tiverem solicitação regulada prévia.
+  * **Deduplicação de Telefones**: Telefones do e-SUS são validados e inseridos na tabela `pacientes_telefones` somente se forem inéditos para aquele paciente, mantendo retrocompatibilidade com `telefone_1` e `telefone_2`.
+  * **Integração no Motor do SISREG (`import-parser.ts`)**: Ao término de cada importação de arquivo do SISREG, novos pacientes ingressantes na fila são automaticamente enriquecidos a partir do `esus_cadastros` com endereço, UBS e telefones.
+* **Novos Campos Estratégicos na Fila e Pacientes**:
+  * `unidade_referencia_cnes`: UBS de Referência do paciente com badges visuais em `/dashboard/pacientes`.
+  * `equipe_saude_nome` e `equipe_saude_ine`: Nome e código nacional da Equipe de Saúde da Família (ESF).
+  * `microarea`: Microárea do Agente Comunitário de Saúde (ACS), permitindo busca ativa presencial de pacientes sem contato telefônico.
+  * `data_atualizacao_esus`: Termômetro de confiabilidade indicando a data da última visita/atualização cadastral pelo ACS.
+* **Central de Importações Reestruturada (`/dashboard/importacao`)**:
+  * Adicionado sistema de abas alternando entre **"Fila SISREG"** e **"Atualização e-SUS"**.
+  * Suporte a **Seleção de Pasta Completa (`webkitdirectory`)** para carregar múltiplos arquivos CSV de uma só vez.
+  * Fila de execução sequencial no cliente com status visual por arquivo e painel de métricas acumuladas em tempo real.
+* **Script CLI de Alta Performance (`npm run import:esus`)**:
+  * Executável local para processamento em lote de diretórios inteiros via terminal com relatório tabular consolidado.
+
+---
+
+## [0.8.0] — 2026-08-29
 ### Adicionado
 * **Central de Agendamentos & Cirurgias Eletivas (`/dashboard/agendas`)**:
   * Novo módulo operacional com suporte a **Multivisão**:

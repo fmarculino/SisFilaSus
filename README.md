@@ -13,6 +13,7 @@ Toda a documentação operacional e técnica detalhada está organizada na pasta
 4. **[Manual do Operador e Regulador](docs/manual_operador.md)**: Instruções para uso da fila, filtros, drawers de detalhes, modelos de mensagem e convocação ativa via WhatsApp.
 5. **[Arquitetura e Fluxo de Dados](docs/arquitetura_fluxos.md)**: Detalhamento técnico da modelagem de banco de dados, triggers Postgres, views, políticas de RLS e diff de auditoria.
 6. **[Guia Técnico: Comunicação & Autenticação SSR](docs/GUIA_INTEGRACAO_COMUNICACAO_E_AUTH.md)**: Guia completo sobre disparo por WhatsApp AstraCalls API (trabalho do 9º dígito), e-mail transacional SMTP e fluxo de recuperação de senha.
+7. **[Base Cadastral e-SUS & Enriquecimento Territorial](docs/integracao_esus_base_territorial.md)**: Guia completo sobre a integração com o e-SUS Atenção Primária, importação em lote (pastas completas), campos estratégicos (UBS, Equipe ESF e Microárea) e enriquecimento automático na importação SISREG.
 
 ---
 

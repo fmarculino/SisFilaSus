@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/utils/supabase/admin'
+import { enriquecerPacientesComEsus } from './esus-importer'
 
 interface ImportResult {
   nomeArquivo: string
@@ -501,6 +502,16 @@ export async function parseAndImportCSV(
       registros_ausentes: ausentes
     })
     .eq('id', importLote.id)
+
+  // 11. Enriquecimento automático de pacientes com a base territorial e-SUS
+  try {
+    const allPatientIds = Array.from(patientMap.values())
+    if (allPatientIds.length > 0) {
+      await enriquecerPacientesComEsus(allPatientIds)
+    }
+  } catch (err: any) {
+    console.error('Aviso: Falha no enriquecimento automático e-SUS (não-bloqueante):', err.message)
+  }
 
   return {
     nomeArquivo: fileName,
