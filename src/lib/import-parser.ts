@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/utils/supabase/admin'
 import { enriquecerPacientesComEsus } from './esus-importer'
+import { classificarProcedimento } from './classifier'
 
 interface ImportResult {
   nomeArquivo: string
@@ -141,7 +142,15 @@ export async function parseAndImportCSV(
       const modalidade_fila = modFilaStr ? parseInt(modFilaStr, 10) : null
       
       const grupoCod = getColValue(rowCols, 'COD. INTERNO DO GRUPO DE PROCEDIMENTOS') || null
-      const grupoDesc = getColValue(rowCols, 'DESC. INTERNA DO GRUPO DE PROCEDIMENTOS') || null
+      let grupoDesc = getColValue(rowCols, 'DESC. INTERNA DO GRUPO DE PROCEDIMENTOS') || null
+
+      if (!grupoDesc || grupoDesc.toUpperCase() === 'GERAL' || grupoDesc.toUpperCase().startsWith('GRUPO - ')) {
+        grupoDesc = classificarProcedimento({
+          cod_sigtap: codSigtap,
+          desc_sigtap: descSigtap,
+          grupo_descricao: grupoDesc
+        })
+      }
 
       procedimentosMap.set(codSigtap, {
         cod_sigtap: codSigtap,
