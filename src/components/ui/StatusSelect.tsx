@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { ChevronDown, Check, X, Bookmark, Flag, Tag } from 'lucide-react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { ChevronDown, Check, X } from 'lucide-react'
 import { StatusItem, getStatusColorConfig } from './StatusBadge'
+import { Portal } from './Portal'
 
 interface StatusSelectProps {
   statusList: StatusItem[]
@@ -24,43 +25,93 @@ export function StatusSelect({
   disabled = false,
 }: StatusSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean }>({
+    top: 0,
+    left: 0,
+    width: 0,
+    openUp: false,
+  })
 
   // Encontra o status selecionado
   const selectedItem = useMemo(() => {
     return statusList.find(s => s.codigo === value)
   }, [statusList, value])
 
-  // Filtragem de opções ativas ou da atualmente selecionada
+  // Lista de opções ativas ou da atualmente selecionada
   const visibleOptions = useMemo(() => {
-    const list = statusList.filter(s => s.active !== false || s.codigo === value)
-    if (!search.trim()) return list
-    const q = search.toLowerCase().trim()
-    return list.filter(s => s.nome.toLowerCase().includes(q) || s.codigo.toLowerCase().includes(q))
-  }, [statusList, value, search])
+    return statusList.filter(s => s.active !== false || s.codigo === value)
+  }, [statusList, value])
 
-  // Fecha dropdown ao clicar fora
+  // Atualiza posição do dropdown com base na posição do botão na janela
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUp = spaceBelow < 260 && rect.top > 260
+
+    setCoords({
+      top: openUp ? rect.top : rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      openUp,
+    })
+  }, [])
+
+  // Atualiza posição ao abrir e escuta scroll/resize
   useEffect(() => {
+    if (!isOpen) return
+
+    updatePosition()
+
+    const handleScrollOrResize = () => {
+      updatePosition()
+    }
+
+    window.addEventListener('scroll', handleScrollOrResize, true)
+    window.addEventListener('resize', handleScrollOrResize)
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [isOpen, updatePosition])
+
+  // Fecha dropdown ao clicar fora do botão ou do menu
+  useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false)
-        setSearch('')
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [isOpen])
 
   const selectedColorCfg = selectedItem ? getStatusColorConfig(selectedItem.cor) : null
 
   return (
-    <div ref={containerRef} className={`relative w-full ${className}`}>
+    <div className={`relative w-full ${className}`}>
       {/* Botão Seletor Principal */}
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen) updatePosition()
+          setIsOpen(!isOpen)
+        }}
         className={`
           flex w-full items-center justify-between gap-2.5 rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs font-semibold text-foreground outline-none transition-all
           hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20
@@ -72,17 +123,15 @@ export function StatusSelect({
         <div className="flex items-center gap-2.5 truncate min-w-0">
           {selectedItem && selectedColorCfg ? (
             <>
-              {/* Bandeirinha / Marcador com a cor cadastrada */}
-              <div 
-                className="w-3 h-4 rounded-xs shrink-0 shadow-xs border flex items-center justify-center transition-transform"
-                style={{ 
-                  backgroundColor: selectedColorCfg.hex, 
-                  borderColor: `${selectedColorCfg.hex}cc` 
+              {/* Quadradinho com a cor configurada no cadastro */}
+              <span
+                className="w-3.5 h-3.5 rounded-md shrink-0 shadow-xs border"
+                style={{
+                  backgroundColor: selectedColorCfg.hex,
+                  borderColor: selectedColorCfg.hex,
                 }}
-                title={`Cor: ${selectedColorCfg.label}`}
-              >
-                <div className="w-1 h-1 rounded-full bg-white/90" />
-              </div>
+                aria-hidden="true"
+              />
 
               {/* Nome limpo sem prefixos [SISREG] ou [SisFilaSus] */}
               <span className="truncate font-bold text-foreground">
@@ -103,7 +152,7 @@ export function StatusSelect({
                 e.stopPropagation()
                 onChange('')
               }}
-              className="p-1 rounded-md hover:bg-muted text-muted-foreground/60 hover:text-foreground cursor-pointer transition-colors"
+              className="p-1 rounded-full hover:bg-muted text-muted-foreground/60 hover:text-foreground cursor-pointer transition-colors"
               title="Limpar seleção"
             >
               <X className="h-3.5 w-3.5" />
@@ -113,85 +162,81 @@ export function StatusSelect({
         </div>
       </button>
 
-      {/* Menu Dropdown com Bandeirinhas Coloridas */}
+      {/* Menu Dropdown via Portal (Z-index 9999 - NUNCA fica por trás de cards ou modais) */}
       {isOpen && (
-        <div className="absolute z-50 mt-1.5 w-full rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          {/* Opções de Status */}
-          <ul className="max-h-64 overflow-y-auto py-1.5 text-xs divide-y divide-border/5">
-            {/* Opção "Todos os Status" */}
-            <li
-              onClick={() => {
-                onChange('')
-                setIsOpen(false)
-              }}
-              className={`px-4 py-2.5 cursor-pointer flex items-center justify-between text-muted-foreground hover:bg-muted/40 transition-colors ${
-                !value ? 'bg-primary/10 text-primary font-bold' : ''
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-3 h-4 rounded-xs border border-dashed border-border/60 bg-muted/40 shrink-0" />
-                <span className="font-semibold">{placeholder}</span>
-              </div>
-              {!value && <Check className="h-4 w-4 text-primary stroke-[3]" />}
-            </li>
+        <Portal>
+          <div
+            ref={dropdownRef}
+            className="fixed z-[9999] rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              top: coords.openUp ? undefined : coords.top + 6,
+              bottom: coords.openUp ? window.innerHeight - coords.top + 6 : undefined,
+              left: coords.left,
+              width: coords.width,
+              maxHeight: 280,
+            }}
+          >
+            <ul className="max-h-64 overflow-y-auto py-1.5 text-xs divide-y divide-border/10">
+              {/* Opção "Todos os Status" */}
+              <li
+                onClick={() => {
+                  onChange('')
+                  setIsOpen(false)
+                }}
+                className={`px-4 py-2.5 cursor-pointer flex items-center justify-between text-muted-foreground hover:bg-muted/40 transition-colors ${
+                  !value ? 'bg-primary/10 text-primary font-bold' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3.5 h-3.5 rounded-md border border-dashed border-border/60 bg-muted/40 shrink-0" />
+                  <span className="font-semibold">{placeholder}</span>
+                </div>
+                {!value && <Check className="h-4 w-4 text-primary stroke-[3]" />}
+              </li>
 
-            {/* Lista com Bandeirinhas Coloridas para cada status */}
-            {visibleOptions.map((item) => {
-              const isSelected = item.codigo === value
-              const colorCfg = getStatusColorConfig(item.cor)
+              {/* Lista com quadradinho colorido do lado esquerdo (sem tags do lado direito) */}
+              {visibleOptions.map((item) => {
+                const isSelected = item.codigo === value
+                const colorCfg = getStatusColorConfig(item.cor)
 
-              return (
-                <li
-                  key={item.codigo}
-                  onClick={() => {
-                    onChange(item.codigo)
-                    setIsOpen(false)
-                  }}
-                  className={`px-4 py-2.5 cursor-pointer flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors ${
-                    isSelected ? 'bg-primary/10 font-bold' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {/* Bandeirinha com a cor configurada no cadastro */}
-                    <div 
-                      className="w-3.5 h-4.5 rounded-xs shrink-0 shadow-xs border flex items-center justify-center"
-                      style={{ 
-                        backgroundColor: colorCfg.hex, 
-                        borderColor: `${colorCfg.hex}` 
-                      }}
-                      title={`Cor: ${colorCfg.label}`}
-                    >
-                      <div className="w-1 h-1 rounded-full bg-white/90 shadow-xs" />
+                return (
+                  <li
+                    key={item.codigo}
+                    onClick={() => {
+                      onChange(item.codigo)
+                      setIsOpen(false)
+                    }}
+                    className={`px-4 py-2.5 cursor-pointer flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors ${
+                      isSelected ? 'bg-primary/10 font-bold' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Quadradinho com a cor cadastrada do lado esquerdo */}
+                      <span
+                        className="w-3.5 h-3.5 rounded-md shrink-0 shadow-xs border"
+                        style={{
+                          backgroundColor: colorCfg.hex,
+                          borderColor: colorCfg.hex,
+                        }}
+                        aria-hidden="true"
+                      />
+
+                      {/* Nome do status limpo */}
+                      <span className="text-foreground truncate font-semibold">
+                        {item.nome}
+                      </span>
                     </div>
 
-                    {/* Nome do status 100% limpo, sem [SISREG] ou [SisFilaSus] */}
-                    <span className="text-foreground truncate font-semibold">
-                      {item.nome}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {/* Badge da cor suave */}
-                    <span 
-                      className="px-2 py-0.5 text-[9px] font-black uppercase rounded-md border"
-                      style={{
-                        backgroundColor: `${colorCfg.hex}15`,
-                        color: colorCfg.hex,
-                        borderColor: `${colorCfg.hex}30`
-                      }}
-                    >
-                      {colorCfg.label}
-                    </span>
-
+                    {/* Apenas o Check caso selecionado (sem tag de cor no lado direito) */}
                     {isSelected && (
-                      <Check className="h-4 w-4 text-primary stroke-[3]" />
+                      <Check className="h-4 w-4 text-primary stroke-[3] shrink-0" />
                     )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </Portal>
       )}
     </div>
   )
