@@ -58,8 +58,9 @@ const ROLES: Record<RoleKey, RoleInfo> = {
     tasks: [
       'Filtrar a fila de espera pela especialidade e procedimento que terão vagas abertas.',
       'Ligar e enviar WhatsApp padronizado para os pacientes com os múltiplos telefones da base.',
+      'Verificar vagas abertas em tempo real no Drawer do paciente e agendar com 1 clique.',
+      'Promover pacientes contatados e elegíveis para o Banco de Aptos (Apto Aguardando Vaga) caso não haja vaga imediata.',
       'Registrar o desfecho do contato: Confirmou, Sem Resposta, Recusou ou Número Inválido.',
-      'Alocar pacientes confirmados na grade de vagas do médico.',
       'Solicitar autorização de mudança de prioridade caso o paciente apresente laudo de urgência.'
     ],
     mainScreens: [
@@ -195,6 +196,8 @@ const FLOW_STEPS = [
     whatHappens: 'O operador liga e dispara WhatsApp oficial para os primeiros pacientes da fila.',
     howItWorks: [
       'Disparo de WhatsApp com 1 clique utilizando mensagens oficiais padronizadas.',
+      'Casamento Inteligente de Vagas: o sistema localiza agendas compatíveis abertas e permite agendar diretamente na chamada.',
+      'Banco de Aptos: se o paciente está elegível mas não há vaga imediata, é marcado como "Apto (Aguardando Vaga)" para prioridade na Central.',
       'Registro obrigatório do resultado: Confirmou, Sem Resposta, Caixa Postal ou Desistência.',
       'Múltiplos telefones disponíveis para garantir que o paciente seja localizado.'
     ],
@@ -734,6 +737,16 @@ export default function GuiaPage() {
             <div className="p-4 rounded-2xl bg-card border border-border/30 space-y-1">
               <span className="text-xs font-black text-primary uppercase">NIR (Núcleo Interno de Regulação)</span>
               <p className="text-xs text-muted-foreground leading-relaxed">Setor dentro do hospital executante (HMM) responsável por gerenciar leitos cirúrgicos e confirmar os mapas cirúrgicos diários.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/30 space-y-1">
+              <span className="text-xs font-black text-emerald-500 uppercase">Banco de Aptos (Fila de Prontos)</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">Pacientes que já foram ativamente contatados pelo operador, confirmaram aptidão clínica/documental e aguardam apenas a liberação de vaga médica, recebendo prioridade máxima na Central de Agendas.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-card border border-border/30 space-y-1">
+              <span className="text-xs font-black text-primary uppercase">Blindagem SISREG & Status Local</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">Mecanismo do banco de dados que impede que novas importações de planilhas do SISREG sobrescrevam anotações, status operacionais ou reclassificações de risco feitas localmente.</p>
             </div>
           </div>
         </section>

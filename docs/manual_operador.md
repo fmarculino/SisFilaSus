@@ -56,7 +56,22 @@ Toda tentativa de contato **deve** ser registrada no sistema para compor o hist�
 
 ---
 
-## 🏥 5. Encaminhamento para Hospital/Clínica Prestador
+## ⚡ 5. Casamento Inteligente de Agendas & Banco de Aptos
+Ao atender o paciente no Drawer da Fila de Espera, o sistema realiza um cruzamento automático entre a necessidade do paciente (especialidade e procedimento) e as cotas médicas cadastradas na Central de Agendas.
+
+### 🎯 Cenário A: Existem Vagas Abertas Disponíveis
+* O card **"Agendas Disponíveis para Este Procedimento"** exibirá as opções abertas (Médico, Hospital/Clínica, Data, Turno e Vagas Livres).
+* O operador pode clicar diretamente no botão **"Agendar Paciente"**. O sistema realiza a alocação imediata, vincula o paciente na vaga médica e atualiza o status operacional sem sair da tela.
+
+### 🌟 Cenário B: Não há Vagas Disponíveis Imediatas (Banco de Aptos)
+* Se não houver agendas com vagas abertas no momento do contato, mas o paciente **confirmou que deseja realizar o procedimento e está com exames/documentos prontos**, o operador clica no botão:
+  👉 **"Marcar como Apto (Aguardando Vaga)"**.
+* **O que acontece**: O paciente é promovido para o status **"Apto (Aguardando Vaga)"** (`APTO_AGUARDANDO_VAGA`).
+* **Prioridade Automática na Central**: Quando novas agendas forem cadastradas pelos hospitais, os pacientes com este status aparecerão **automaticamente no topo da gaveta de alocação de vagas** com o selo dourado `⭐ Banco de Aptos (Prioritário)`, garantindo que pacientes já pré-selecionados sejam agendados com máxima rapidez.
+
+---
+
+## 🏥 6. Encaminhamento para Hospital/Clínica Prestador
 Quando um paciente com status **Confirmado** (`CONVOCADO_CONFIRMADO`) está pronto para ser encaminhado a um prestador da rede, o operador realiza o encaminhamento no Drawer de Detalhes.
 
 ### 📋 Como Encaminhar:
@@ -73,12 +88,12 @@ Quando um paciente com status **Confirmado** (`CONVOCADO_CONFIRMADO`) está pron
 
 ---
 
-## ⚙️ 6. Altas, Baixas e Registro de Óbito (Fluxo de Encerramento)
+## ⚙️ 7. Altas, Baixas e Registro de Óbito (Fluxo de Encerramento)
 Após o paciente ser atendido ou internado, o fluxo de encerramento ou baixa é feito de acordo com a situação:
 
 ### A. Alta Cirúrgica (`ALTA`) ou Procedimento Realizado (`PROCEDIMENTO_REALIZADO`)
 * **Uso**: Para dar alta pós-cirúrgica ou registrar que a clínica parceira realizou a consulta/exame.
-* **Como fazer**: No Drawer de Detalhes, localize o campo **"Alterar Status Interno (Manual)"** (abaixo dos telefones). Selecione o status correto (**"Alta"** ou **"Procedimento Realizado"**) e confirme. A solicitação sairá dos filtros ativos e registrará a baixa na auditoria.
+* **Como fazer**: No Drawer de Detalhes, localize o seletor inteligente **"Alterar Status Interno (Manual)"** (com indicador visual colorido correspondente). Selecione o status correto (**"Alta"** ou **"Procedimento Realizado"**) e confirme. A solicitação sairá dos filtros ativos e registrará a baixa na auditoria imutável.
 
 ### B. Óbito (`OBITO`) ou Desistência (`DESISTENCIA`)
 * **Uso**: Quando o paciente desiste do procedimento ou falece antes/durante a regulação.
@@ -87,7 +102,7 @@ Após o paciente ser atendido ou internado, o fluxo de encerramento ou baixa é 
 
 ---
 
-## 📋 6. A Lista de Convocação Diária
+## 📋 8. A Lista de Convocação Diária
 A tela **Lista de Convocação** (`/dashboard/convocacao`) é a sua fila de trabalho dedicada.
 
 * **Foco no que importa**: Ela exibe apenas solicitações ativas com os status `EM_CONVOCACAO` ou `SEM_CONTATO`.
@@ -99,7 +114,7 @@ A tela **Lista de Convocação** (`/dashboard/convocacao`) é a sua fila de trab
 
 ---
 
-## 🌐 7. Portal do Cidadão (Orientação ao Paciente)
+## 🌐 9. Portal do Cidadão (Orientação ao Paciente)
 Sempre que um paciente solicitar a confirmação de sua posição na fila ou quiser acompanhar o andamento de forma independente, você pode orientá-lo a acessar o **Portal do Cidadão**.
 
 * **Endereço para os Pacientes**:

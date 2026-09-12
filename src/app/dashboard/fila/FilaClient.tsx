@@ -20,11 +20,13 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { StatusBadge, StatusItem } from '@/components/ui/StatusBadge'
 import { StatusSelect } from '@/components/ui/StatusSelect'
 import { ProcessingOverlay } from '@/components/ui/ProcessingOverlay'
+import { AgendasDisponiveisCard } from '@/components/ui/AgendasDisponiveisCard'
 
 const DEFAULT_STATUS_LIST: StatusItem[] = [
   { codigo: 'NA_FILA', nome: 'Na Fila', origem: 'SISREG', cor: 'slate' },
   { codigo: 'EM_CONVOCACAO', nome: 'Em Convocação', origem: 'SisFilaSus', cor: 'blue' },
   { codigo: 'CONVOCADO_CONFIRMADO', nome: 'Confirmado', origem: 'SisFilaSus', cor: 'emerald' },
+  { codigo: 'APTO_AGUARDANDO_VAGA', nome: 'Apto / Aguardando Vaga', origem: 'SisFilaSus', cor: 'teal' },
   { codigo: 'CONVOCADO_RECUSOU', nome: 'Recusou', origem: 'SisFilaSus', cor: 'rose' },
   { codigo: 'SEM_CONTATO', nome: 'Sem Contato', origem: 'SisFilaSus', cor: 'amber' },
   { codigo: 'ABSENTEISMO', nome: 'Absenteísmo', origem: 'SisFilaSus', cor: 'orange' },
@@ -986,17 +988,28 @@ export function FilaClient({
                       </td>
                       <td className="py-4 px-6">{getStatusBadge(sol.status_interno)}</td>
                       <td className="py-4 px-6 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedSol(sol)
-                            setDrawerOpen(true)
-                          }}
-                          className="p-2.5 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                          title="Detalhar Paciente"
-                        >
-                          <Eye className="h-4.5 w-4.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {sol.status_interno === 'APTO_AGUARDANDO_VAGA' && (
+                            <span 
+                              className="px-2 py-0.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/30 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"
+                              title="Paciente apto e pré-selecionado no Banco de Aptos"
+                            >
+                              <Star className="w-2.5 h-2.5 fill-teal-500" />
+                              <span className="hidden xl:inline">Banco de Aptos</span>
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedSol(sol)
+                              setDrawerOpen(true)
+                            }}
+                            className="p-2.5 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                            title="Detalhar Paciente e Agendas"
+                          >
+                            <Eye className="h-4.5 w-4.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1160,7 +1173,26 @@ export function FilaClient({
                   </div>
                 </div>
 
-                {/* 2. Painel de Encaminhamento para Hospital */}
+                {/* 2. Oferta & Casamento de Agendas (Disponibilidade Imediata + Banco de Aptos) */}
+                <AgendasDisponiveisCard
+                  solicitacao={selectedSol}
+                  onAgendamentoConcluido={(novoStatus, agendaInfo) => {
+                    setSelectedSol((prev: any) => ({
+                      ...prev,
+                      status_interno: novoStatus,
+                      ...(agendaInfo?.hospital ? { hospital_encaminhado_id: agendaInfo.hospital.id } : {})
+                    }))
+                    if (agendaInfo?.hospital) {
+                      setExtraData((prev) => ({
+                        ...prev,
+                        hospitalEncaminhado: agendaInfo.hospital,
+                        dataEncaminhamento: agendaInfo.data_agenda
+                      }))
+                    }
+                  }}
+                />
+
+                {/* 3. Painel de Encaminhamento para Hospital */}
                 {(selectedSol.status_interno === 'CONVOCADO_CONFIRMADO' || selectedSol.status_interno === 'ENCAMINHADO' || selectedSol.status_interno === 'INTERNADO') && (
                   <div className="bento-card p-6 border-indigo-500/20 bg-indigo-500/5 space-y-4">
                     <div className="flex items-center gap-2 text-indigo-400">

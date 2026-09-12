@@ -72,11 +72,20 @@ Oferta de Vagas & Médicos  ───>  Alocação da Fila Prioritária  ──�
   - **Qtd. de Vagas**: Número de cirurgias ou atendimentos comportados.
   - **Observações / Sala**: Orientações específicas de preparo ou sala de atendimento.
 
-### Passo 2: Alocação Inteligente a partir da Fila de Espera
+### Passo 2: Alocação Inteligente a partir da Fila de Espera (Priorização Reversa e Casamento Direto)
+O preenchimento de vagas pode ocorrer por duas vias integradas:
+
+#### Via A: Casamento Direto na Fila de Espera (Drawer de Atendimento)
+- Enquanto o operador telefona para o paciente na Fila (`/dashboard/fila`), o card **"Agendas Disponíveis para Este Procedimento"** identifica vagas médicas abertas em tempo real.
+- O operador pode clicar em **"Agendar Paciente"** com 1 clique.
+- Se o paciente estiver apto mas não houver vagas abertas, ele pode ser enviado com 1 clique para o **"Banco de Aptos (Aguardando Vaga)"**.
+
+#### Via B: Preenchimento de Vagas pela Agenda (`/dashboard/agendas`)
 - Na agenda do médico, clique em **"Preencher Vagas da Fila"**.
-- O sistema filtra automaticamente os pacientes prioritários da fila que aguardam aquela especialidade, ordenados por:
-  1. **Classificação de Risco**: Risco 0 (Vermelho/Emergência) e Risco 1 (Laranja/Urgência) primeiro.
-  2. **Posição Numérica na Fila**: Ordem cronológica oficial.
+- O sistema filtra automaticamente os pacientes elegíveis daquela especialidade aplicando o algoritmo de priorização inteligente:
+  1. **⭐ Banco de Aptos (`APTO_AGUARDANDO_VAGA`)**: Pacientes já contatados previamente, elegíveis e com documentação em ordem surgem **no topo absoluto da lista** com badge dourado de destaque.
+  2. **Classificação de Risco**: Risco 0 (Vermelho/Emergência) e Risco 1 (Laranja/Urgência).
+  3. **Posição Numérica na Fila**: Ordem cronológica oficial do SISREG.
 - O operador pode disparar mensagem no WhatsApp do paciente e, com 1 clique no botão **"Alocar na Vaga"**, vinculá-lo à agenda.
 
 ### Passo 3: Atendimento & Registro de Intercorrências Clínicas

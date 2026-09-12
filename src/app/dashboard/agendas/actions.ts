@@ -274,10 +274,10 @@ export async function searchPacientesParaAgendaAction(params: {
       )
     `)
     .eq('active', true)
-    .in('status_interno', ['NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
+    .in('status_interno', ['APTO_AGUARDANDO_VAGA', 'NA_FILA', 'EM_CONVOCACAO', 'SEM_CONTATO'])
     .order('classificacao_risco', { ascending: true }) // 0 e 1 primeiro
     .order('posicao_fila', { ascending: true, nullsFirst: false })
-    .limit(params.limit || 30)
+    .limit(params.limit || 50)
 
   if (params.search) {
     const s = params.search.trim()
@@ -309,7 +309,15 @@ export async function searchPacientesParaAgendaAction(params: {
     return { success: false, error: error.message, data: [] }
   }
 
-  return { success: true, data: data || [] }
+  // Prioriza no topo os pacientes do Banco de Aptos (que já confirmaram interesse)
+  const sorted = (data || []).sort((a: any, b: any) => {
+    const aIsApto = a.status_interno === 'APTO_AGUARDANDO_VAGA' ? 1 : 0
+    const bIsApto = b.status_interno === 'APTO_AGUARDANDO_VAGA' ? 1 : 0
+    if (bIsApto !== aIsApto) return bIsApto - aIsApto
+    return (a.posicao_fila || 999999) - (b.posicao_fila || 999999)
+  })
+
+  return { success: true, data: sorted }
 }
 
 /**
@@ -344,10 +352,18 @@ export async function allocatePacienteToAgendaAction(
     return { success: false, error: error.message }
   }
 
-  // 2. Atualizar status na fila
+  // 2. Atualizar status na fila (se já estava no Banco de Aptos, vira Confirmado imediatamente)
+  const { data: solAtual } = await supabase
+    .from('fila_solicitacoes')
+    .select('status_interno')
+    .eq('cod_solicitacao', codSolicitacao)
+    .single()
+
+  const novoStatus = solAtual?.status_interno === 'APTO_AGUARDANDO_VAGA' ? 'CONVOCADO_CONFIRMADO' : 'EM_CONVOCACAO'
+
   await supabase
     .from('fila_solicitacoes')
-    .update({ status_interno: 'EM_CONVOCACAO' })
+    .update({ status_interno: novoStatus })
     .eq('cod_solicitacao', codSolicitacao)
 
   revalidatePath('/dashboard/agendas')

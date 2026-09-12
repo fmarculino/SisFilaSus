@@ -60,6 +60,25 @@ O **SisFilaSus** é uma solução municipal desenvolvida para a Secretaria Munic
   * Registra a operação em `audit_log` com a ação `ENCAMINHAR_PRESTADOR`.
 * **Redirecionamento**: Pacientes já `ENCAMINHADO` ou `INTERNADO` podem ter o hospital redirecionado a qualquer momento pelo painel.
 
+### 🏷️ Gestão Dinâmica de Status Internos (`/dashboard/status`)
+* **Tabela Centralizada**: A tabela `status_solicitacao` gerencia todos os estágios operacionais da fila (`codigo`, `descricao`, `cor`, `ativo`, `ordem`, `is_sistema`).
+* **Seletor de Cores Dinâmico**: Permite que os gestores definam a cor visual (entre 14 tons de destaque) de cada status.
+* **Componente StatusSelect com Portal**: O seletor de status utiliza React Portal (`z-index: 9999`) com cálculo dinâmico de coordenadas para evitar problemas de corte em cards/drawers com `overflow: hidden`, exibindo um quadrado com a cor oficial de cada opção.
+* **Proteção de Histórico**: Registros de status não possuem exclusão física (apenas inativação lógica), garantindo que solicitações antigas nunca percam sua integridade relacional.
+
+### ⚡ Casamento Inteligente de Agendas & Banco de Aptos (Fila de Prontos)
+* **Cruzamento em Tempo Real no Atendimento**: Ao abrir o Drawer de um paciente na Fila (`/dashboard/fila`), o componente `AgendasDisponiveisCard` busca automaticamente na base vagas abertas compatíveis com a especialidade e procedimento do paciente.
+* **Agendamento com 1 Clique**: O operador pode alocar o paciente na vaga médica diretamente da tela de atendimento telefônico.
+* **Banco de Aptos (`APTO_AGUARDANDO_VAGA`)**: Caso o paciente esteja elegível, documentado e preparado, mas o município não disponha de cotas imediatas, o operador o promove com 1 clique para o status "Apto (Aguardando Vaga)".
+* **Priorização Reversa**: Na Central de Agendas (`/dashboard/agendas`), ao clicar em "Preencher Vagas da Fila", os pacientes do Banco de Aptos aparecem prioritariamente no topo da busca com selo dourado (`⭐ Banco de Aptos`), agilizando o preenchimento de novas agendas assim que são ofertadas.
+
+### 🛡️ Blindagem SISREG & Risco Reclassificado
+* **Gatilho de Blindagem**: A trigger PostgreSQL `preserve_status_interno()` e a coluna `risco_reclassificado_localmente` asseguram que novas importações de planilhas de rotina do SISREG não sobrescrevam anotações, decisões ou reclassificações clínicas feitas localmente pela regulação municipal.
+
+### ⏱️ Feedback Visual Anti-Travamento (ProcessingOverlay) & Alta Performance
+* **Overlay com Cronômetro**: Integrado na Fila, Pacientes e Importação, exibe animação suave, mensagens informativas rotativas e cronômetro em tempo real, informando ao operador que o sistema está processando a consulta e não travado.
+* **Otimização de RLS & Materialized View**: Políticas de segurança (RLS) otimizadas com cache de função `auth_user_perfil()` e view materializada de suporte, baixando os tempos de consulta na fila de >3 segundos para aproximadamente 340ms sob carga de dezenas de acessos simultâneos.
+
 ### 📊 Relatórios Gerenciais Avançados
 Painel analítico completo para suporte à decisão da gestão municipal, estruturado em abas dinâmicas:
 * **Resumo Geral**: Visão consolidada dos principais KPIs municipais (total de regulados, espera média ponderada geral, contatos efetuados e taxa de sucesso).

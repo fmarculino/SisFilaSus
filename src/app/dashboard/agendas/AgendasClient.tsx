@@ -1822,7 +1822,13 @@ export function AgendasClient({
                           className="p-4 rounded-2xl border border-border/40 bg-card/60 hover:border-primary/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
                         >
                           <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {p.status_interno === 'APTO_AGUARDANDO_VAGA' && (
+                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30 flex items-center gap-1">
+                                  <Star className="w-2.5 h-2.5 fill-teal-500" />
+                                  <span>Banco de Aptos (Prioritário)</span>
+                                </span>
+                              )}
                               <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-500/10 text-rose-500 border border-rose-500/20">
                                 Risco {p.classificacao_risco}
                               </span>
