@@ -4,7 +4,28 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.9.0] — 2026-09-11 (Atual)
+## [0.10.0] — 2026-09-12 (Atual)
+### Adicionado
+* **Casamento Inteligente de Agendas no Drawer do Paciente**:
+  * Ao abrir os detalhes do paciente na Fila (`/dashboard/fila`), o componente `AgendasDisponiveisCard` identifica vagas abertas compatíveis com procedimento e especialidade em tempo real.
+  * Agendamento direto na chamada telefônica com 1 clique (`agendarPacienteEmVagaAction`).
+* **Banco de Aptos (Fila de Prontos)**:
+  * Criação do status oficial `APTO_AGUARDANDO_VAGA` ("Apto (Aguardando Vaga)") para pacientes contatados e aptos sem vaga imediata.
+  * Priorização reversa na Central de Agendas (`/dashboard/agendas`): pacientes do Banco de Aptos aparecem no topo absoluto com o selo `⭐ Banco de Aptos (Prioritário)`.
+* **Cadastro Dinâmico de Status da Solicitação (`/dashboard/status`)**:
+  * Tabela `status_solicitacao` com gestão centralizada de códigos, descrições, ordens e cores (paleta de 14 cores HSL).
+  * Proteção do histórico com bloqueio de exclusão física (inativação lógica).
+  * Seletor de status com indicador visual colorido e renderização via React Portal (`z-index: 9999`) para evitar problemas de overflow.
+* **Blindagem SISREG e Risco Reclassificado**:
+  * Trigger `preserve_status_interno()` e coluna `risco_reclassificado_localmente` para proteger anotações e reclassificações locais de sobrescritas em novas importações de CSV.
+* **Otimização de RLS & Performance Extrema**:
+  * Materialized view `mv_solicitacoes_fila`, índices compostos/parciais e cache de perfil com `auth_user_perfil()`, reduzindo tempo de query de >3s para ~340ms.
+* **Feedback Visual Anti-Travamento (`ProcessingOverlay`)**:
+  * Cronômetro de precisão em tempo real e mensagens dinâmicas na Fila, Pacientes e Importação para evitar sensação de travamento em operações longas.
+
+---
+
+## [0.9.0] — 2026-09-11
 ### Adicionado
 * **Base Territorial Municipal e-SUS (`esus_cadastros`)**:
   * Criação da tabela `esus_cadastros` para armazenamento e consolidação territorial contínua de todos os cidadãos do município cadastrados na Atenção Primária.
