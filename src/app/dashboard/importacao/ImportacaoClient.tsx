@@ -7,6 +7,7 @@ import {
   Activity, Clock, ShieldAlert, Layers, Users
 } from 'lucide-react'
 import { ImportacaoEsusTab } from './ImportacaoEsusTab'
+import { ProcessingOverlay } from '@/components/ui/ProcessingOverlay'
 
 interface ImportStats {
   nomeArquivo: string
@@ -82,6 +83,20 @@ export function ImportacaoClient({ role, email }: { role: string; email: string 
 
   return (
     <DashboardShell role={role} email={email}>
+      {/* Feedback visual dinâmico com cronômetro para importação demorada */}
+      <ProcessingOverlay
+        isOpen={loading}
+        title="Processando Importação do SISREG..."
+        subtitle="O sistema está analisando o arquivo, preservando dados locais e atualizando a fila."
+        messages={[
+          'Lendo e validando estrutura do arquivo CSV...',
+          'Identificando solicitações e cruzando com pacientes...',
+          'Preservando status e histórico registrados pelos operadores...',
+          'Atualizando posições oficiais da regulação no banco...',
+          'Finalizando gravação com integridade e segurança...'
+        ]}
+      />
+
       <div className="space-y-8 max-w-5xl">
         {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

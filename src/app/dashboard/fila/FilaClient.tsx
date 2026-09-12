@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
@@ -18,6 +18,8 @@ import { PhoneBadge } from '@/components/ui/PhoneBadge'
 import { syncPacienteTelefonesAction } from '@/app/dashboard/pacientes/telefone-actions'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { StatusBadge, StatusItem } from '@/components/ui/StatusBadge'
+import { StatusSelect } from '@/components/ui/StatusSelect'
+import { ProcessingOverlay } from '@/components/ui/ProcessingOverlay'
 
 const DEFAULT_STATUS_LIST: StatusItem[] = [
   { codigo: 'NA_FILA', nome: 'Na Fila', origem: 'SISREG', cor: 'slate' },
@@ -65,6 +67,7 @@ interface FilaClientProps {
   unidades: any[]
   especialidades: string[]
   statusList?: StatusItem[]
+  queryError?: string | null
   omitirForaSisregDefault?: boolean
   anosLimpezaFila?: number
   appliedFilters: {
@@ -95,10 +98,12 @@ export function FilaClient({
   unidades,
   especialidades,
   statusList = [],
+  queryError = null,
   omitirForaSisregDefault = true,
   anosLimpezaFila = 5,
   appliedFilters,
 }: FilaClientProps) {
+  const [isPending, startTransition] = useTransition()
   const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const pathname = usePathname()
@@ -231,7 +236,9 @@ export function FilaClient({
     params.set('page', '1') // reseta para primeira página
     params.set('limit', itemsPerPage.toString())
 
-    router.push(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   // Ordenação de colunas da tabela
@@ -264,7 +271,9 @@ export function FilaClient({
     params.set('page', '1') // reset page
     params.set('limit', itemsPerPage.toString())
 
-    router.push(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   const handleClearFilters = () => {
@@ -280,7 +289,18 @@ export function FilaClient({
     setTipo('')
     setAntigas('false')
     setOmitirForaSisreg(omitirForaSisregDefault ? 'true' : 'false')
-    router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
+    startTransition(() => {
+      router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
+    })
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', newPage.toString())
+    params.set('limit', itemsPerPage.toString())
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   // Carregar dados extras ao selecionar solicitação
@@ -760,23 +780,15 @@ export function FilaClient({
                 </select>
               </div>
 
-              {/* Status Interno */}
+              {/* Status Interno com Bandeirinhas Coloridas */}
               <div className="group">
                 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 px-1">Status Interno</label>
-                <select
+                <StatusSelect
+                  statusList={resolvedStatusList}
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-semibold"
-                >
-                  <option value="">Todos os Status</option>
-                  {resolvedStatusList
-                    .filter(s => s.active !== false || s.codigo === status)
-                    .map((opt) => (
-                      <option key={opt.codigo} value={opt.codigo}>
-                        {opt.origem ? `[${opt.origem}] ` : ''}{opt.nome}
-                      </option>
-                    ))}
-                </select>
+                  onChange={(val) => setStatus(val)}
+                  placeholder="Todos os Status"
+                />
               </div>
 
               {/* Eixo / Tipo de Fila */}
@@ -851,17 +863,34 @@ export function FilaClient({
               </button>
               <button
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center gap-2"
+                disabled={isPending}
+                className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Filter className="h-3.5 w-3.5" />
-                Filtrar Resultados
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Consultando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>Filtrar Resultados</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
 
+        {/* Feedback visual dinâmico com cronômetro para evitar sensação de travamento */}
+        <ProcessingOverlay 
+          isOpen={isPending} 
+          title="Consultando Fila da Regulação..."
+          subtitle="Varrendo a base com mais de 100 mil registros e aplicando os filtros."
+        />
+
         {/* Tabela de Resultados */}
-        <div className="bento-card overflow-hidden">
+        <div className={`bento-card overflow-hidden transition-opacity duration-300 ${isPending ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -893,7 +922,24 @@ export function FilaClient({
                 {solicitacoes.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-muted-foreground font-bold">
-                      Nenhuma solicitação encontrada com os filtros aplicados.
+                      {queryError ? (
+                        <div className="flex flex-col items-center justify-center gap-3 p-6 text-rose-500 max-w-md mx-auto">
+                          <AlertTriangle className="w-8 h-8 text-rose-500 animate-bounce" />
+                          <div>
+                            <p className="text-sm font-bold text-foreground">Instabilidade na Conexão com o Banco</p>
+                            <p className="text-xs text-muted-foreground mt-1">O banco de dados demorou mais que o esperado para responder. Por favor, clique abaixo para tentar novamente.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyFilters()}
+                            className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow cursor-pointer hover:scale-105 transition-transform"
+                          >
+                            Recarregar Fila
+                          </button>
+                        </div>
+                      ) : (
+                        <span>Nenhuma solicitação encontrada com os filtros aplicados.</span>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -963,6 +1009,7 @@ export function FilaClient({
             totalItems={totalItems}
             itemsPerPage={itemsPerPage}
             currentPage={currentPage}
+            onPageChange={handlePageChange}
           />
         </div>
       </div>
@@ -1072,13 +1119,14 @@ export function FilaClient({
 
                     <div className="border-t border-border/20 pt-4 space-y-2">
                       <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest">Alterar Status Interno (Manual)</label>
-                      <div className="flex gap-2">
-                        <select
+                      <div className="w-full">
+                        <StatusSelect
+                          statusList={resolvedStatusList.filter(s => s.active !== false || s.codigo === selectedSol.status_interno)}
                           value={selectedSol.status_interno}
-                          onChange={async (e) => {
-                            const nextStatus = e.target.value
+                          onChange={async (nextStatus) => {
+                            if (!nextStatus || nextStatus === selectedSol.status_interno) return
                             const nextStatusObj = statusMap.get(nextStatus)
-                            const nextLabel = nextStatusObj ? `${nextStatusObj.origem ? `[${nextStatusObj.origem}] ` : ''}${nextStatusObj.nome}` : nextStatus
+                            const nextLabel = nextStatusObj ? nextStatusObj.nome : nextStatus
 
                             const confirmed = await showConfirm({
                               title: 'Alterar Status Interno',
@@ -1104,16 +1152,9 @@ export function FilaClient({
                               }
                             }
                           }}
-                          className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground font-semibold"
-                        >
-                          {resolvedStatusList
-                            .filter(s => s.active !== false || s.codigo === selectedSol.status_interno)
-                            .map((opt) => (
-                              <option key={opt.codigo} value={opt.codigo}>
-                                {opt.origem ? `[${opt.origem}] ` : ''}{opt.nome}
-                              </option>
-                            ))}
-                        </select>
+                          placeholder="Selecione o Status"
+                          buttonClassName="py-2.5 rounded-xl text-xs"
+                        />
                       </div>
                     </div>
                   </div>

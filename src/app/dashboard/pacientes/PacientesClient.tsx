@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import React, { useState, useEffect, useMemo, useTransition } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/DashboardShell'
 import { Pagination } from '@/components/ui/Pagination'
 import { Portal } from '@/components/ui/Portal'
@@ -9,12 +9,13 @@ import { PhoneBadge, type PhoneStatus, type PhoneType } from '@/components/ui/Ph
 import { PhoneManager, type TelefoneData } from '@/components/ui/PhoneManager'
 import { 
   Plus, Edit2, Trash2, X, User, Search, Filter, 
-  Phone, Calendar, AlertCircle, FileText, Star
+  Phone, Calendar, AlertCircle, FileText, Star, Loader2
 } from 'lucide-react'
 import { savePacienteAction, deletePacienteAction } from './actions'
 import { syncPacienteTelefonesAction, getPacienteTelefonesAction } from './telefone-actions'
 import { useSystemModal } from '@/components/ui/SystemModal'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
+import { ProcessingOverlay } from '@/components/ui/ProcessingOverlay'
 
 interface TelefoneDB {
   id: string
@@ -77,9 +78,11 @@ export function PacientesClient({
   municipios,
   unidades = []
 }: PacientesClientProps) {
+  const [isPending, startTransition] = useTransition()
   const { showAlert, showConfirm } = useSystemModal()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes)
   const [search, setSearch] = useState(searchParam)
@@ -224,14 +227,27 @@ export function PacientesClient({
     if (selectedUnidadeRef) params.set('unidadeReferencia', selectedUnidadeRef)
     params.set('page', '1')
     params.set('limit', itemsPerPage.toString())
-    router.push(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   const handleClearSearch = () => {
     setSearch('')
     setSelectedMunicipio('')
     setSelectedUnidadeRef('')
-    router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
+    startTransition(() => {
+      router.push(`${pathname}?page=1&limit=${itemsPerPage}`)
+    })
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', newPage.toString())
+    params.set('limit', itemsPerPage.toString())
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -457,17 +473,40 @@ export function PacientesClient({
               </button>
               <button
                 type="submit"
-                className="w-1/2 sm:w-auto px-6 py-3.5 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-2"
+                disabled={isPending}
+                className="w-1/2 sm:w-auto px-6 py-3.5 rounded-2xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer shadow-md shadow-primary/10 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Filter className="h-3.5 w-3.5" />
-                <span>Filtrar</span>
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Buscando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>Filtrar</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
 
+        {/* Feedback visual dinâmico com cronômetro para busca de pacientes */}
+        <ProcessingOverlay
+          isOpen={isPending}
+          title="Buscando Fichas de Pacientes..."
+          subtitle="Consultando a base de dados de cidadãos e unidades de saúde vinculadas."
+          messages={[
+            'Pesquisando registros por nome, CNS ou CPF...',
+            'Cruzando informações de prontuário e contatos...',
+            'Vinculando equipes e unidades de saúde de referência...',
+            'Preparando listagem para exibição com alta velocidade...'
+          ]}
+        />
+
         {/* Tabela de Resultados */}
-        <div className="bento-card overflow-hidden">
+        <div className={`bento-card overflow-hidden transition-opacity duration-300 ${isPending ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -559,6 +598,7 @@ export function PacientesClient({
             totalItems={totalItems}
             itemsPerPage={itemsPerPage}
             currentPage={currentPage}
+            onPageChange={handlePageChange}
           />
         </div>
 
