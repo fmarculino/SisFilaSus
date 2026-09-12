@@ -17,6 +17,23 @@ import { PhoneManager, type TelefoneData } from '@/components/ui/PhoneManager'
 import { PhoneBadge } from '@/components/ui/PhoneBadge'
 import { syncPacienteTelefonesAction } from '@/app/dashboard/pacientes/telefone-actions'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
+import { StatusBadge, StatusItem } from '@/components/ui/StatusBadge'
+
+const DEFAULT_STATUS_LIST: StatusItem[] = [
+  { codigo: 'NA_FILA', nome: 'Na Fila', origem: 'SISREG', cor: 'slate' },
+  { codigo: 'EM_CONVOCACAO', nome: 'Em Convocação', origem: 'SisFilaSus', cor: 'blue' },
+  { codigo: 'CONVOCADO_CONFIRMADO', nome: 'Confirmado', origem: 'SisFilaSus', cor: 'emerald' },
+  { codigo: 'CONVOCADO_RECUSOU', nome: 'Recusou', origem: 'SisFilaSus', cor: 'rose' },
+  { codigo: 'SEM_CONTATO', nome: 'Sem Contato', origem: 'SisFilaSus', cor: 'amber' },
+  { codigo: 'ABSENTEISMO', nome: 'Absenteísmo', origem: 'SisFilaSus', cor: 'orange' },
+  { codigo: 'ENCAMINHADO', nome: 'Encaminhado Hospital/Clínica', origem: 'SisFilaSus', cor: 'sky' },
+  { codigo: 'INTERNADO', nome: 'Internado', origem: 'SisFilaSus', cor: 'indigo' },
+  { codigo: 'PROCEDIMENTO_REALIZADO', nome: 'Procedimento Realizado', origem: 'SisFilaSus', cor: 'teal' },
+  { codigo: 'ALTA', nome: 'Alta', origem: 'SisFilaSus', cor: 'green' },
+  { codigo: 'DESISTENCIA', nome: 'Desistência', origem: 'SisFilaSus', cor: 'purple' },
+  { codigo: 'OBITO', nome: 'Óbito', origem: 'SisFilaSus', cor: 'neutral' },
+  { codigo: 'NAO_ENCONTRADO_SISREG', nome: 'Fora do SISREG', origem: 'SISREG', cor: 'amber' }
+]
 
 
 const formatPhone = (value: string) => {
@@ -47,6 +64,7 @@ interface FilaClientProps {
   municipios: any[]
   unidades: any[]
   especialidades: string[]
+  statusList?: StatusItem[]
   omitirForaSisregDefault?: boolean
   anosLimpezaFila?: number
   appliedFilters: {
@@ -76,6 +94,7 @@ export function FilaClient({
   municipios,
   unidades,
   especialidades,
+  statusList = [],
   omitirForaSisregDefault = true,
   anosLimpezaFila = 5,
   appliedFilters,
@@ -93,6 +112,17 @@ export function FilaClient({
   const [unidadeReferencia, setUnidadeReferencia] = useState(appliedFilters.unidadeReferencia || '')
   const [risco, setRisco] = useState(appliedFilters.risco)
   const [status, setStatus] = useState(appliedFilters.status)
+
+  // Lista dinâmica de status com fallback
+  const resolvedStatusList = useMemo(() => {
+    return statusList && statusList.length > 0 ? statusList : DEFAULT_STATUS_LIST
+  }, [statusList])
+
+  const statusMap = useMemo(() => {
+    const map = new Map<string, StatusItem>()
+    resolvedStatusList.forEach(s => map.set(s.codigo, s))
+    return map
+  }, [resolvedStatusList])
   const [tipo, setTipo] = useState(appliedFilters.tipo)
   const [antigas, setAntigas] = useState(appliedFilters.antigas || 'false')
   const [omitirForaSisreg, setOmitirForaSisreg] = useState(appliedFilters.omitirForaSisreg || 'true')
@@ -610,23 +640,9 @@ export function FilaClient({
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'NA_FILA': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-muted text-muted-foreground border border-border">Na Fila</span>
-      case 'EM_CONVOCACAO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20">Em Convocação</span>
-      case 'CONVOCADO_CONFIRMADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Confirmado</span>
-      case 'CONVOCADO_RECUSOU': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20">Recusou</span>
-      case 'SEM_CONTATO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">Sem Contato</span>
-      case 'ABSENTEISMO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">Absenteísmo</span>
-      case 'ENCAMINHADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20">Encaminhado</span>
-      case 'INTERNADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Internado</span>
-      case 'PROCEDIMENTO_REALIZADO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-teal-500/10 text-teal-500 border border-teal-500/20">Realizado</span>
-      case 'ALTA': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-emerald-500 text-white">Alta</span>
-      case 'DESISTENCIA': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-gray-500/10 text-gray-500 border border-gray-500/20">Desistência</span>
-      case 'OBITO': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-black text-white">Óbito</span>
-      case 'NAO_ENCONTRADO_SISREG': return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-amber-500 text-white border border-amber-600">Fora do SISREG</span>
-      default: return <span className="px-2.5 py-1 text-[9px] font-bold uppercase rounded-lg bg-muted text-muted-foreground border border-border">Na Fila</span>
-    }
+  const getStatusBadge = (statusCode: string) => {
+    const item = statusMap.get(statusCode)
+    return <StatusBadge codigo={statusCode} statusObj={item} />
   }
 
   return (
@@ -753,19 +769,13 @@ export function FilaClient({
                   className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all font-semibold"
                 >
                   <option value="">Todos os Status</option>
-                  <option value="NA_FILA">[SISREG] Na Fila</option>
-                  <option value="EM_CONVOCACAO">[SisFilaSus] Em Convocação</option>
-                  <option value="CONVOCADO_CONFIRMADO">[SisFilaSus] Confirmado</option>
-                  <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
-                  <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
-                  <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
-                  <option value="ENCAMINHADO">[SisFilaSus] Encaminhado Hospital/Clínica</option>
-                  <option value="INTERNADO">[SisFilaSus] Internado</option>
-                  <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
-                  <option value="ALTA">[SisFilaSus] Alta</option>
-                  <option value="DESISTENCIA">[SisFilaSus] Desistência</option>
-                  <option value="OBITO">[SisFilaSus] Óbito</option>
-                  <option value="NAO_ENCONTRADO_SISREG">[SISREG] Fora do SISREG</option>
+                  {resolvedStatusList
+                    .filter(s => s.active !== false || s.codigo === status)
+                    .map((opt) => (
+                      <option key={opt.codigo} value={opt.codigo}>
+                        {opt.origem ? `[${opt.origem}] ` : ''}{opt.nome}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -1067,9 +1077,12 @@ export function FilaClient({
                           value={selectedSol.status_interno}
                           onChange={async (e) => {
                             const nextStatus = e.target.value
+                            const nextStatusObj = statusMap.get(nextStatus)
+                            const nextLabel = nextStatusObj ? `${nextStatusObj.origem ? `[${nextStatusObj.origem}] ` : ''}${nextStatusObj.nome}` : nextStatus
+
                             const confirmed = await showConfirm({
                               title: 'Alterar Status Interno',
-                              message: `Deseja alterar o status desta solicitação para "${nextStatus}"?`,
+                              message: `Deseja alterar o status desta solicitação para "${nextLabel}"?`,
                               confirmText: 'Alterar Status',
                               variant: 'primary'
                             })
@@ -1093,19 +1106,13 @@ export function FilaClient({
                           }}
                           className="block w-full rounded-xl border border-border/50 bg-background/50 py-2.5 px-3 text-xs outline-none focus:border-primary transition-all text-foreground font-semibold"
                         >
-                          <option value="NA_FILA">[SISREG] Na Fila</option>
-                          <option value="EM_CONVOCACAO">[SisFilaSus] Em Convocação</option>
-                          <option value="CONVOCADO_CONFIRMADO">[SisFilaSus] Confirmado</option>
-                          <option value="CONVOCADO_RECUSOU">[SisFilaSus] Recusou</option>
-                          <option value="SEM_CONTATO">[SisFilaSus] Sem Contato</option>
-                          <option value="ABSENTEISMO">[SisFilaSus] Absenteísmo</option>
-                          <option value="ENCAMINHADO">[SisFilaSus] Encaminhado Hospital/Clínica</option>
-                          <option value="INTERNADO">[SisFilaSus] Internado</option>
-                          <option value="PROCEDIMENTO_REALIZADO">[SisFilaSus] Procedimento Realizado</option>
-                          <option value="ALTA">[SisFilaSus] Alta</option>
-                          <option value="DESISTENCIA">[SisFilaSus] Desistência</option>
-                          <option value="OBITO">[SisFilaSus] Óbito</option>
-                          <option value="NAO_ENCONTRADO_SISREG">[SISREG] Fora do SISREG</option>
+                          {resolvedStatusList
+                            .filter(s => s.active !== false || s.codigo === selectedSol.status_interno)
+                            .map((opt) => (
+                              <option key={opt.codigo} value={opt.codigo}>
+                                {opt.origem ? `[${opt.origem}] ` : ''}{opt.nome}
+                              </option>
+                            ))}
                         </select>
                       </div>
                     </div>

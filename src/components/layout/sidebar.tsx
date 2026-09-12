@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarCheck, History,
   Users, Building2, Download, ScrollText, Settings, Lock, 
   Shield, ChevronDown, Stethoscope, UserCog, RefreshCw, CalendarDays,
-  UserCheck, Award, Activity, MapPin, Landmark, BookOpen
+  UserCheck, Award, Activity, MapPin, Landmark, BookOpen, Tag
 } from 'lucide-react'
 import { AboutMenu } from './about-menu'
 
@@ -33,18 +33,18 @@ const navigation = [
     name: 'Fila de Espera', 
     href: '/dashboard/fila', 
     icon: ClipboardList, 
-    roles: ['SMS_ADMIN', 'COORDENADOR', 'MEDICO_REGULADOR', 'OPERADOR_REGULACAO', 'AUXILIAR', 'UNIDADE_USER']
+    roles: ADMIN_COORD_OPERADOR 
   },
   {
     name: 'Operações',
     icon: CalendarCheck,
-    roles: ALL_ROLES,
+    roles: ADMIN_COORD_OPERADOR_PRESTADOR,
     children: [
-      { name: 'Agendas & Cirurgias', href: '/dashboard/agendas', icon: CalendarDays, roles: ADMIN_COORD_OPERADOR_PRESTADOR },
-      { name: 'Convocações', href: '/dashboard/convocacao', icon: CalendarCheck, roles: ADMIN_COORD_OPERADOR },
-      { name: 'Movimentações', href: '/dashboard/movimentacoes', icon: History, roles: ['SMS_ADMIN', 'COORDENADOR', 'OPERADOR_REGULACAO', 'MEDICO_REGULADOR'] },
-      { name: 'Sincronização SISREG', href: '/dashboard/sincronizacao', icon: RefreshCw, roles: ADMIN_COORD_OPERADOR },
-      { name: 'Relatórios Gerenciais', href: '/dashboard/relatorios', icon: ScrollText, roles: ADMIN_COORD },
+      { name: 'Regulação de Cirurgias', href: '/dashboard/agendas', icon: CalendarDays, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Convocação Ativa', href: '/dashboard/convocacao', icon: Stethoscope, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Sincronização SISREG', href: '/dashboard/sincronizacao', icon: RefreshCw, roles: ADMIN_COORD },
+      { name: 'Movimentações de Fila', href: '/dashboard/movimentacoes', icon: History, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Relatórios & Exportação', href: '/dashboard/relatorios', icon: ScrollText, roles: ADMIN_COORD },
     ]
   },
   {
@@ -56,6 +56,7 @@ const navigation = [
       { name: 'Médicos', href: '/dashboard/medicos', icon: UserCheck, roles: ADMIN_COORD_OPERADOR },
       { name: 'Especialidades', href: '/dashboard/especialidades', icon: Award, roles: ADMIN_COORD_OPERADOR },
       { name: 'Procedimentos (SIGTAP)', href: '/dashboard/procedimentos', icon: Activity, roles: ADMIN_COORD_OPERADOR },
+      { name: 'Status da Fila', href: '/dashboard/status', icon: Tag, roles: ADMIN_COORD },
       { name: 'Unidades Solicitantes', href: '/dashboard/unidades', icon: Landmark, roles: ADMIN_COORD_OPERADOR },
       { name: 'Municípios', href: '/dashboard/municipios', icon: MapPin, roles: ADMIN_COORD_OPERADOR },
       { name: 'Prestadores (Hospitais)', href: '/dashboard/prestadores', icon: Building2, roles: ADMIN_COORD },

@@ -209,6 +209,7 @@ export default async function FilaPage({
     municipiosRes,
     unidadesRes,
     especialidadesRes,
+    statusRes,
   ] = await Promise.all([
     query,
     supabase
@@ -219,12 +220,14 @@ export default async function FilaPage({
     supabase.from('municipios').select('codigo_ibge, nome').order('nome').limit(2000),
     supabase.from('unidades_solicitantes').select('cnes, nome').order('nome').limit(2000),
     supabase.from('especialidades').select('nome').eq('active', true).limit(2000),
+    supabase.from('status_solicitacao').select('*').order('ordem', { ascending: true }),
   ])
 
   const { data: solicitacoes, count } = filaRes
   const dbProcedimentos = procedimentosRes.data
   const dbMunicipios = municipiosRes.data
   const dbUnidades = unidadesRes.data
+  const dbStatus = statusRes?.data || []
 
   // grupo_descricao ja veio junto de procedimentos — a segunda varredura
   // completa da tabela apenas para montar esta lista era desnecessaria.
@@ -247,6 +250,7 @@ export default async function FilaPage({
       municipios={dbMunicipios || []}
       unidades={dbUnidades || []}
       especialidades={especialidades}
+      statusList={dbStatus}
       omitirForaSisregDefault={omitirForaSisregDefault}
       anosLimpezaFila={anosLimpezaFila}
       appliedFilters={{
