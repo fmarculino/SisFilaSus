@@ -4,7 +4,28 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
-## [0.10.0] — 2026-09-12 (Atual)
+## [0.10.1] — 2026-09-14
+### Adicionado & Corrigido
+* **Filtro Inteligente de Telefones e Prevenção de Duplicatas (`phone-utils.ts`)**:
+  * Implementação de rotina centralizada de sanitização e comparação inteligente de telefones brasileiros (`arePhoneNumbersEqual` e `normalizeTelefone`).
+  * Detecção de equivalência entre telefones móveis com e sem o 9º dígito obrigatório (10 vs 11 dígitos), números truncados por limitações de colunas em planilhas legadas (ex: 10 dígitos prefixo de 11 dígitos) e convergência de 8 dígitos locais.
+  * Promoção automática de telefones celulares de 10 dígitos para 11 dígitos com o '9' obrigatório Anatel (`DDD + 9 + 8 dígitos`), preservando telefones fixos (iniciados com 2, 3, 4, 5) em 10 dígitos.
+* **Importação e Enriquecimento Blindados Contra Telefones Duplicados**:
+  * Em `processEsusImport` e `enriquecerPacientesComEsus`, o sistema agora valida cada telefone contra **todos** os registros já existentes do paciente (`pacientes_telefones` e campos legados `telefone_1`/`telefone_2`).
+  * Se o número já estiver gravado no cadastro do paciente, a inclusão é **estritamente ignorada**, impedindo qualquer duplicação.
+  * Se o paciente possuía apenas o número antigo/incompleto (10 dígitos) e o arquivo traz a versão completa de 11 dígitos, o registro existente é automaticamente promovido para a versão completa sem gerar linhas adicionais.
+  * Sincronização dos campos legados `telefone_1` e `telefone_2` garantindo unicidade mútua.
+* **Correção da Máscara de Exibição na Interface**:
+  * Ajuste em `PhoneManager.tsx` e `PacientesClient.tsx` via `formatPhoneNumber`, exibindo corretamente telefones fixos `(XX) XXXX-XXXX` e celulares `(XX) XXXXX-XXXX`, eliminando deformações como `(94) 99155-877`.
+  * Prevenção de duplicatas também no salvamento manual via modal com `deduplicatePhonesList`.
+* **Saneamento e Limpeza no Banco de Dados**:
+  * Execução de script seguro de saneamento que removeu **327 telefones duplicados** em **324 pacientes**.
+  * Caso da paciente Nilza Maria Silva do Nascimento: remoção do número truncado `9499155877`, mantendo exclusivamente o telefone completo `(94) 99155-8777` ativo como prioridade principal e limpando duplicatas legadas.
+  * Total de duplicatas no banco reduzido a **0**.
+
+---
+
+## [0.10.0] — 2026-09-12
 ### Adicionado
 * **Casamento Inteligente de Agendas no Drawer do Paciente**:
   * Ao abrir os detalhes do paciente na Fila (`/dashboard/fila`), o componente `AgendasDisponiveisCard` identifica vagas abertas compatíveis com procedimento e especialidade em tempo real.

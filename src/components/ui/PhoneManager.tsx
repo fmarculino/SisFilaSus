@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Phone, Plus, Trash2, Star, ChevronUp, ChevronDown, MessageSquare, UserCircle } from 'lucide-react'
 import { PhoneBadge, type PhoneStatus, type PhoneType, getPhoneTypeLabel } from './PhoneBadge'
+import { formatPhoneNumber } from '@/lib/phone-utils'
 
 export interface TelefoneData {
   id?: string
@@ -23,12 +24,7 @@ interface PhoneManagerProps {
   compact?: boolean  // modo compacto para uso no drawer da fila
 }
 
-const maskPhone = (value: string) => {
-  const clean = value.replace(/\D/g, '').substring(0, 11)
-  if (clean.length <= 2) return clean
-  if (clean.length <= 7) return `(${clean.substring(0, 2)}) ${clean.substring(2)}`
-  return `(${clean.substring(0, 2)}) ${clean.substring(2, 7)}-${clean.substring(7)}`
-}
+const maskPhone = (value: string) => formatPhoneNumber(value)
 
 const EMPTY_PHONE: TelefoneData = {
   numero: '',

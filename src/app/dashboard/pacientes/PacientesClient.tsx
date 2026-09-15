@@ -16,6 +16,7 @@ import { syncPacienteTelefonesAction, getPacienteTelefonesAction } from './telef
 import { useSystemModal } from '@/components/ui/SystemModal'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { ProcessingOverlay } from '@/components/ui/ProcessingOverlay'
+import { formatPhoneNumber, normalizeTelefone, arePhoneNumbersEqual } from '@/lib/phone-utils'
 
 interface TelefoneDB {
   id: string
@@ -149,12 +150,7 @@ export function PacientesClient({
     return `${clean.substring(0, 3)}.${clean.substring(3, 6)}.${clean.substring(6, 9)}-${clean.substring(9)}`
   }
 
-  const maskPhone = (value: string) => {
-    const clean = value.replace(/\D/g, '').substring(0, 11)
-    if (clean.length <= 2) return clean
-    if (clean.length <= 7) return `(${clean.substring(0, 2)}) ${clean.substring(2)}`
-    return `(${clean.substring(0, 2)}) ${clean.substring(2, 7)}-${clean.substring(7)}`
-  }
+  const maskPhone = (value: string) => formatPhoneNumber(value)
 
   const maskCns = (value: string) => {
     const clean = value.replace(/\D/g, '').substring(0, 15)
@@ -290,8 +286,8 @@ export function PacientesClient({
         data_nascimento: nascimento || null,
         sexo: sexo || null,
         nome_mae: mae || null,
-        telefone_1: telefonesAtivos[0]?.numero.replace(/\D/g, '') || null,
-        telefone_2: telefonesAtivos[1]?.numero.replace(/\D/g, '') || null,
+        telefone_1: telefonesAtivos[0] ? normalizeTelefone(telefonesAtivos[0].numero) : null,
+        telefone_2: (telefonesAtivos[1] && !arePhoneNumbersEqual(telefonesAtivos[1].numero, telefonesAtivos[0]?.numero)) ? normalizeTelefone(telefonesAtivos[1].numero) : null,
         endereco: endereco || null,
         municipio_origem: municipio || null,
         observacoes: observacoes || null,

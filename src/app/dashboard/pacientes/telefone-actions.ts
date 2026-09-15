@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { deduplicatePhonesList, normalizeTelefone, arePhoneNumbersEqual } from '@/lib/phone-utils'
 
 export interface TelefoneInput {
   id?: string
@@ -60,8 +61,12 @@ export async function syncPacienteTelefonesAction(
   const existingIds = new Set((existentes || []).map(t => t.id))
   const incomingIds = new Set(telefones.filter(t => t.id).map(t => t.id!))
 
-  // 2. Deletar telefones removidos pelo usuário
-  const toDelete = [...existingIds].filter(id => !incomingIds.has(id))
+  // 2.5 Deduplicar a lista de entrada para garantir que não haja telefones repetidos
+  const { kept: telefonesDeduplicados, removed: telefonesRemovidos } = deduplicatePhonesList(telefones)
+
+  // 2. Deletar telefones removidos pelo usuário (ou eliminados por duplicação)
+  const validIncomingIds = new Set(telefonesDeduplicados.filter(t => t.id).map(t => t.id!))
+  const toDelete = [...existingIds].filter(id => !validIncomingIds.has(id))
   if (toDelete.length > 0) {
     const { error: deleteError } = await supabase
       .from('pacientes_telefones')
@@ -74,9 +79,9 @@ export async function syncPacienteTelefonesAction(
     }
   }
 
-  // 3. Inserir novos e atualizar existentes
-  for (const tel of telefones) {
-    const cleanNumero = tel.numero.replace(/\D/g, '')
+  // 3. Inserir novos e atualizar existentes com número normalizado
+  for (const tel of telefonesDeduplicados) {
+    const cleanNumero = normalizeTelefone(tel.numero)
     if (!cleanNumero) continue // pular telefones sem número
 
     const payload = {
@@ -115,12 +120,19 @@ export async function syncPacienteTelefonesAction(
   }
 
   // 4. Também sincronizar os campos legados telefone_1 e telefone_2 para retrocompatibilidade
-  const telefonesAtivos = telefones
-    .filter(t => t.status === 'ATIVO' && t.numero.replace(/\D/g, ''))
+  const telefonesAtivos = telefonesDeduplicados
+    .filter(t => t.status === 'ATIVO' && normalizeTelefone(t.numero))
     .sort((a, b) => a.prioridade - b.prioridade)
 
-  const tel1 = telefonesAtivos[0]?.numero.replace(/\D/g, '') || null
-  const tel2 = telefonesAtivos[1]?.numero.replace(/\D/g, '') || null
+  const tel1 = telefonesAtivos[0] ? normalizeTelefone(telefonesAtivos[0].numero) : null
+  let tel2: string | null = null
+
+  if (telefonesAtivos[1]) {
+    const candidateTel2 = normalizeTelefone(telefonesAtivos[1].numero)
+    if (!arePhoneNumbersEqual(candidateTel2, tel1)) {
+      tel2 = candidateTel2
+    }
+  }
 
   const { error: syncError } = await supabase
     .from('pacientes')
@@ -129,7 +141,6 @@ export async function syncPacienteTelefonesAction(
 
   if (syncError) {
     console.error('Erro ao sincronizar campos legados de telefone:', syncError.message)
-    // Não falha a operação inteira, apenas loga
   }
 
   revalidatePath('/dashboard/pacientes')

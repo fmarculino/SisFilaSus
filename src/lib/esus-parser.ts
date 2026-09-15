@@ -1,3 +1,5 @@
+import { normalizeTelefone, arePhoneNumbersEqual } from './phone-utils'
+
 export interface EsusTelefone {
   numero: string
   tipo: 'CELULAR_WHATSAPP' | 'FIXO' | 'RECADO'
@@ -27,6 +29,7 @@ export interface EsusParseResult {
 
 /**
  * Normaliza número de telefone brasileiro (DDD + 8 ou 9 dígitos).
+ * Celulares de 10 dígitos são automaticamente promovidos para 11 dígitos com o '9' obrigatório.
  * Rejeita sequências fictícias (ex: 9400000000, 9999999999).
  */
 export function sanitizePhoneNumber(raw: string): string | null {
@@ -42,7 +45,7 @@ export function sanitizePhoneNumber(raw: string): string | null {
   const body = digits.substring(2)
   if (/^(\d)\1+$/.test(body)) return null
 
-  return digits
+  return normalizeTelefone(digits)
 }
 
 /**
@@ -157,19 +160,17 @@ export function parseEsusCSV(
     const res = sanitizePhoneNumber(p[11] || '')
     const recado = sanitizePhoneNumber(p[12] || '')
 
-    const seenNumbers = new Set<string>()
-    if (cel && !seenNumbers.has(cel)) {
-      telefones.push({ numero: cel, tipo: 'CELULAR_WHATSAPP' })
-      seenNumbers.add(cel)
+    const addIfUnique = (num: string | null, tipo: EsusTelefone['tipo']) => {
+      if (!num) return
+      const alreadyExists = telefones.some(t => arePhoneNumbersEqual(t.numero, num))
+      if (!alreadyExists) {
+        telefones.push({ numero: num, tipo })
+      }
     }
-    if (res && !seenNumbers.has(res)) {
-      telefones.push({ numero: res, tipo: 'FIXO' })
-      seenNumbers.add(res)
-    }
-    if (recado && !seenNumbers.has(recado)) {
-      telefones.push({ numero: recado, tipo: 'RECADO' })
-      seenNumbers.add(recado)
-    }
+
+    addIfUnique(cel, 'CELULAR_WHATSAPP')
+    addIfUnique(res, 'FIXO')
+    addIfUnique(recado, 'RECADO')
 
     const dataAtualizacaoEsus = parseDateBR(p[13] || '')
 

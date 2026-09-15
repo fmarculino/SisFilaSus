@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/utils/supabase/admin'
 import { parseEsusCSV, EsusCidadaoParsed } from './esus-parser'
+import { arePhoneNumbersEqual, normalizeTelefone } from './phone-utils'
 
 export interface EsusImportStats {
   nomeArquivo: string
@@ -17,6 +18,12 @@ export interface EsusImportStats {
 }
 
 const CHUNK_SIZE = 200 // Seguro contra PostgREST URL length limit
+
+interface PatientKnownPhone {
+  id?: string
+  numero: string
+  isLegacy?: boolean
+}
 
 /**
  * Normaliza string para comparação sem acentos e maiúscula
@@ -160,13 +167,14 @@ export async function processEsusImport(
       if (existing) {
         // Mesclar telefones sem duplicar número
         const existingPhones: any[] = Array.isArray(existing.telefones) ? existing.telefones : []
-        const currentNums = new Set(existingPhones.map(t => t.numero))
         const mergedPhones = [...existingPhones]
 
         for (const t of c.telefones) {
-          if (!currentNums.has(t.numero)) {
+          const idx = mergedPhones.findIndex(ep => arePhoneNumbersEqual(ep.numero, t.numero))
+          if (idx === -1) {
             mergedPhones.push(t)
-            currentNums.add(t.numero)
+          } else if ((mergedPhones[idx].numero || '').length < (t.numero || '').length) {
+            mergedPhones[idx] = t
           }
         }
 
@@ -284,61 +292,78 @@ export async function processEsusImport(
     return stats
   }
 
-  // Buscar todos os telefones existentes desses pacientes
+  // Buscar todos os telefones existentes desses pacientes (tabela e campos legados)
   const matchedIds = matchedPacientes.map(p => p.id)
-  const existingPhonesByPaciente = new Map<string, Set<string>>()
+  const existingPhonesByPaciente = new Map<string, PatientKnownPhone[]>()
   matchedPacientes.forEach(p => {
-    const set = new Set<string>()
-    if (p.telefone_1) set.add(p.telefone_1.replace(/\D/g, ''))
-    if (p.telefone_2) set.add(p.telefone_2.replace(/\D/g, ''))
-    existingPhonesByPaciente.set(p.id, set)
+    const list: PatientKnownPhone[] = []
+    if (p.telefone_1) list.push({ numero: p.telefone_1.replace(/\D/g, ''), isLegacy: true })
+    if (p.telefone_2 && !arePhoneNumbersEqual(p.telefone_2, p.telefone_1)) {
+      list.push({ numero: p.telefone_2.replace(/\D/g, ''), isLegacy: true })
+    }
+    existingPhonesByPaciente.set(p.id, list)
   })
 
   for (let i = 0; i < matchedIds.length; i += CHUNK_SIZE) {
     const chunk = matchedIds.slice(i, i + CHUNK_SIZE)
     const { data: phones } = await supabase
       .from('pacientes_telefones')
-      .select('paciente_id, numero')
+      .select('id, paciente_id, numero')
       .in('paciente_id', chunk)
 
     ;(phones || []).forEach(pt => {
       const clean = pt.numero.replace(/\D/g, '')
       if (clean) {
-        let set = existingPhonesByPaciente.get(pt.paciente_id)
-        if (!set) {
-          set = new Set()
-          existingPhonesByPaciente.set(pt.paciente_id, set)
+        let list = existingPhonesByPaciente.get(pt.paciente_id)
+        if (!list) {
+          list = []
+          existingPhonesByPaciente.set(pt.paciente_id, list)
         }
-        set.add(clean)
+        const existingIdx = list.findIndex(ep => arePhoneNumbersEqual(ep.numero, clean))
+        if (existingIdx === -1) {
+          list.push({ id: pt.id, numero: clean })
+        } else if (!list[existingIdx].id) {
+          list[existingIdx].id = pt.id
+        }
       }
     })
   }
 
   // Preparar inserção de telefones e atualizações de pacientes
   const newPhonesToInsert: any[] = []
+  const phonesToUpgrade: { id: string; numero: string }[] = []
 
   for (const p of matchedPacientes) {
     const esusData = (p.cpf_usuario && cidadaosPorDoc.get(p.cpf_usuario)) ||
                      (p.cns_usuario && cidadaosPorDoc.get(p.cns_usuario))
     if (!esusData) continue
 
-    const knownNumbers = existingPhonesByPaciente.get(p.id) || new Set<string>()
+    const knownPhones = existingPhonesByPaciente.get(p.id) || []
     const patientNewNumbers: string[] = []
 
-    // Adicionar telefones que ainda não existem
+    // Adicionar telefones que ainda não existem no cadastro do paciente
     for (const t of esusData.telefones) {
-      if (!knownNumbers.has(t.numero)) {
-        knownNumbers.add(t.numero)
+      const match = knownPhones.find(kp => arePhoneNumbersEqual(kp.numero, t.numero))
+      if (!match) {
+        // Número inédito para o paciente: adiciona
+        knownPhones.push({ numero: t.numero })
         patientNewNumbers.push(t.numero)
         newPhonesToInsert.push({
           paciente_id: p.id,
           numero: t.numero,
           tipo: t.tipo,
           status: 'ATIVO',
-          prioridade: knownNumbers.size,
+          prioridade: knownPhones.length - 1,
           observacoes: `Importado do e-SUS (${stats.unidadeNome || 'Atenção Primária'})`
         })
         stats.totalTelefonesAdicionados++
+      } else {
+        // Telefone já existente no cadastro: IGNORAR duplicata!
+        // Se o existente era incompleto/truncado (10 dígitos) e o novo tem 11 dígitos, promove o existente
+        if (match.numero.length < t.numero.length && match.id) {
+          phonesToUpgrade.push({ id: match.id, numero: t.numero })
+          match.numero = t.numero
+        }
       }
     }
 
@@ -365,14 +390,22 @@ export async function processEsusImport(
     if (esusData.microarea) updatePayload.microarea = esusData.microarea
     if (esusData.dataAtualizacaoEsus) updatePayload.data_atualizacao_esus = esusData.dataAtualizacaoEsus
 
-    // Retrocompatibilidade telefone_1 e telefone_2
-    if (!p.telefone_1 && patientNewNumbers.length > 0) {
+    // Retrocompatibilidade telefone_1 e telefone_2 sem permitir duplicatas
+    const curTel1 = p.telefone_1 ? normalizeTelefone(p.telefone_1) : null
+    const curTel2 = p.telefone_2 ? normalizeTelefone(p.telefone_2) : null
+
+    if (!curTel1 && patientNewNumbers.length > 0) {
       updatePayload.telefone_1 = patientNewNumbers[0]
-      if (!p.telefone_2 && patientNewNumbers.length > 1) {
+      if (!curTel2 && patientNewNumbers.length > 1 && !arePhoneNumbersEqual(patientNewNumbers[1], patientNewNumbers[0])) {
         updatePayload.telefone_2 = patientNewNumbers[1]
       }
-    } else if (!p.telefone_2 && patientNewNumbers.length > 0) {
-      updatePayload.telefone_2 = patientNewNumbers[0]
+    } else if (!curTel2 && patientNewNumbers.length > 0) {
+      if (!arePhoneNumbersEqual(patientNewNumbers[0], curTel1)) {
+        updatePayload.telefone_2 = patientNewNumbers[0]
+      }
+    } else if (curTel1 && curTel2 && arePhoneNumbersEqual(curTel1, curTel2)) {
+      // Limpar duplicação legada se telefone_2 for igual a telefone_1
+      updatePayload.telefone_2 = null
     }
 
     // Executar update do paciente
@@ -386,7 +419,12 @@ export async function processEsusImport(
     }
   }
 
-  // Inserir telefones em lote
+  // Atualizar registros de telefones existentes que foram aprimorados para 11 dígitos
+  for (const up of phonesToUpgrade) {
+    await supabase.from('pacientes_telefones').update({ numero: up.numero }).eq('id', up.id)
+  }
+
+  // Inserir novos telefones em lote
   if (newPhonesToInsert.length > 0) {
     for (let i = 0; i < newPhonesToInsert.length; i += CHUNK_SIZE) {
       const chunk = newPhonesToInsert.slice(i, i + CHUNK_SIZE)
@@ -454,24 +492,37 @@ export async function enriquecerPacientesComEsus(
     // Buscar telefones existentes
     const { data: existingPhones } = await supabase
       .from('pacientes_telefones')
-      .select('paciente_id, numero')
+      .select('id, paciente_id, numero')
       .in('paciente_id', chunkIds)
 
-    const existingPhonesByPaciente = new Map<string, Set<string>>()
+    const existingPhonesByPaciente = new Map<string, PatientKnownPhone[]>()
     pacientes.forEach(p => {
-      const set = new Set<string>()
-      if (p.telefone_1) set.add(p.telefone_1.replace(/\D/g, ''))
-      if (p.telefone_2) set.add(p.telefone_2.replace(/\D/g, ''))
-      existingPhonesByPaciente.set(p.id, set)
+      const list: PatientKnownPhone[] = []
+      if (p.telefone_1) list.push({ numero: p.telefone_1.replace(/\D/g, ''), isLegacy: true })
+      if (p.telefone_2 && !arePhoneNumbersEqual(p.telefone_2, p.telefone_1)) {
+        list.push({ numero: p.telefone_2.replace(/\D/g, ''), isLegacy: true })
+      }
+      existingPhonesByPaciente.set(p.id, list)
     })
     ;(existingPhones || []).forEach(pt => {
       const clean = pt.numero.replace(/\D/g, '')
       if (clean) {
-        existingPhonesByPaciente.get(pt.paciente_id)?.add(clean)
+        let list = existingPhonesByPaciente.get(pt.paciente_id)
+        if (!list) {
+          list = []
+          existingPhonesByPaciente.set(pt.paciente_id, list)
+        }
+        const existingIdx = list.findIndex(ep => arePhoneNumbersEqual(ep.numero, clean))
+        if (existingIdx === -1) {
+          list.push({ id: pt.id, numero: clean })
+        } else if (!list[existingIdx].id) {
+          list[existingIdx].id = pt.id
+        }
       }
     })
 
     const newPhonesToInsert: any[] = []
+    const phonesToUpgrade: { id: string; numero: string }[] = []
 
     for (const p of pacientes) {
       const esus = (p.cpf_usuario && esusMap.get(p.cpf_usuario)) ||
@@ -479,24 +530,32 @@ export async function enriquecerPacientesComEsus(
       if (!esus) continue
 
       totalEnriquecidos++
-      const knownNumbers = existingPhonesByPaciente.get(p.id) || new Set<string>()
+      const knownPhones = existingPhonesByPaciente.get(p.id) || []
       const patientNewNumbers: string[] = []
 
-      // Inserir telefones
+      // Inserir telefones inéditos
       const esusPhones: any[] = Array.isArray(esus.telefones) ? esus.telefones : []
       for (const t of esusPhones) {
-        if (t.numero && !knownNumbers.has(t.numero)) {
-          knownNumbers.add(t.numero)
+        if (!t.numero) continue
+        const match = knownPhones.find(kp => arePhoneNumbersEqual(kp.numero, t.numero))
+        if (!match) {
+          knownPhones.push({ numero: t.numero })
           patientNewNumbers.push(t.numero)
           newPhonesToInsert.push({
             paciente_id: p.id,
             numero: t.numero,
             tipo: t.tipo || 'CELULAR_WHATSAPP',
             status: 'ATIVO',
-            prioridade: knownNumbers.size,
+            prioridade: knownPhones.length - 1,
             observacoes: 'Enriquecimento automático e-SUS'
           })
           totalTelefones++
+        } else {
+          // Já existe: ignora duplicação. Se for 10 dígitos e o novo 11, promove
+          if (match.numero.length < t.numero.length && match.id) {
+            phonesToUpgrade.push({ id: match.id, numero: t.numero })
+            match.numero = t.numero
+          }
         }
       }
 
@@ -516,14 +575,28 @@ export async function enriquecerPacientesComEsus(
       if (esus.microarea) updatePayload.microarea = esus.microarea
       if (esus.data_atualizacao_esus) updatePayload.data_atualizacao_esus = esus.data_atualizacao_esus
 
-      if (!p.telefone_1 && patientNewNumbers.length > 0) {
+      const curTel1 = p.telefone_1 ? normalizeTelefone(p.telefone_1) : null
+      const curTel2 = p.telefone_2 ? normalizeTelefone(p.telefone_2) : null
+
+      if (!curTel1 && patientNewNumbers.length > 0) {
         updatePayload.telefone_1 = patientNewNumbers[0]
-      }
-      if (!p.telefone_2 && patientNewNumbers.length > 1) {
-        updatePayload.telefone_2 = patientNewNumbers[1]
+        if (!curTel2 && patientNewNumbers.length > 1 && !arePhoneNumbersEqual(patientNewNumbers[1], patientNewNumbers[0])) {
+          updatePayload.telefone_2 = patientNewNumbers[1]
+        }
+      } else if (!curTel2 && patientNewNumbers.length > 0) {
+        if (!arePhoneNumbersEqual(patientNewNumbers[0], curTel1)) {
+          updatePayload.telefone_2 = patientNewNumbers[0]
+        }
+      } else if (curTel1 && curTel2 && arePhoneNumbersEqual(curTel1, curTel2)) {
+        updatePayload.telefone_2 = null
       }
 
       await supabase.from('pacientes').update(updatePayload).eq('id', p.id)
+    }
+
+    // Promover telefones atualizados
+    for (const up of phonesToUpgrade) {
+      await supabase.from('pacientes_telefones').update({ numero: up.numero }).eq('id', up.id)
     }
 
     if (newPhonesToInsert.length > 0) {

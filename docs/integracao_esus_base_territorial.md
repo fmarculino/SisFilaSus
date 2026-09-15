@@ -69,5 +69,12 @@ npm run import:esus "C:\caminho\para\outra\pasta"
 ---
 
 ## 4. Segurança e Prevenção de Duplicatas
-- **Deduplicação de Telefones:** Cada telefone do e-SUS é limpo para apenas dígitos (validando DDD + 8 ou 9 dígitos) e comparado contra os números existentes do paciente em `pacientes_telefones` e campos legados. Números idênticos são descartados.
-- **Tolerância a Arquivos Repetidos:** Se o mesmo arquivo for importado duas vezes (ou arquivos com dados redundantes), a rotina apenas atualiza a data e não gera telefones repetidos.
+- **Filtro Inteligente e Comparação Canônica (`phone-utils.ts`):** 
+  - Antes de qualquer inserção na tabela `pacientes_telefones` ou nos campos legados `telefone_1`/`telefone_2`, o sistema verifica se o telefone já está registrado para aquele paciente.
+  - A comparação utiliza a função `arePhoneNumbersEqual`, que detecta:
+    - Igualdade exata entre números limpos;
+    - Equivalência entre números móveis de 10 dígitos (sem o 9º dígito) e 11 dígitos (com o 9º dígito);
+    - Truncamentos herdados de exportações com limite de tamanho de coluna (ex: 10 dígitos sendo prefixo exato de 11 dígitos);
+    - Convergência dos 8 dígitos finais locais para o mesmo paciente.
+- **Promoção Automática de Números:** Se o paciente já possuía um telefone com 10 dígitos e a nova importação trouxer a versão completa de 11 dígitos do mesmo contato, o registro existente é promovido para a versão completa de 11 dígitos sem duplicar a linha.
+- **Tolerância a Arquivos Repetidos:** Se o mesmo arquivo for importado duas vezes (ou arquivos com dados redundantes), a rotina apenas atualiza a data e não gera novos telefones.
