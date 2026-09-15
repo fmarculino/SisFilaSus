@@ -78,6 +78,14 @@ export function UsuariosClient({
   const [active, setActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
+  // Perfis disponíveis no formulário: apenas SMS_ADMIN pode atribuir ou cadastrar SMS_ADMIN
+  const formRoles = useMemo(() => {
+    if (userRole === 'SMS_ADMIN') {
+      return DISPONIVEIS_ROLES
+    }
+    return DISPONIVEIS_ROLES.filter(r => r.value !== 'SMS_ADMIN')
+  }, [userRole])
+
   // Opções para SearchableSelect
   const unidadeOptions = useMemo(() => {
     return (unidades || []).map(u => ({
@@ -107,7 +115,16 @@ export function UsuariosClient({
     setModalOpen(true)
   }
 
-  const handleOpenEdit = (u: UserProfile) => {
+  const handleOpenEdit = async (u: UserProfile) => {
+    if (u.role === 'SMS_ADMIN' && userRole !== 'SMS_ADMIN') {
+      await showAlert({
+        title: 'Acesso Restrito',
+        message: 'Apenas Administradores podem visualizar e editar contas com perfil de Administrador.',
+        type: 'warning'
+      })
+      return
+    }
+
     setEditingId(u.id)
     setNome(u.nome || '')
     setEmail(u.email || '')
@@ -121,6 +138,15 @@ export function UsuariosClient({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (role === 'SMS_ADMIN' && userRole !== 'SMS_ADMIN') {
+      await showAlert({ 
+        title: 'Acesso Restrito', 
+        message: 'Você não tem permissão para cadastrar ou definir um perfil de Administrador.', 
+        type: 'warning' 
+      })
+      return
+    }
 
     if (!nome.trim()) {
       await showAlert({ title: 'Atenção', message: 'O nome do usuário é obrigatório.', type: 'warning' })
@@ -198,6 +224,15 @@ export function UsuariosClient({
   const handleToggleActive = async (u: UserProfile) => {
     if (u.email.toLowerCase() === userEmail.toLowerCase()) {
       await showAlert({ title: 'Atenção', message: 'Você não pode suspender ou alterar o status de sua própria conta atualmente logada!', type: 'warning' })
+      return
+    }
+
+    if (u.role === 'SMS_ADMIN' && userRole !== 'SMS_ADMIN') {
+      await showAlert({ 
+        title: 'Acesso Restrito', 
+        message: 'Apenas Administradores podem alterar o status de contas com perfil de Administrador.', 
+        type: 'warning' 
+      })
       return
     }
 
@@ -381,31 +416,46 @@ export function UsuariosClient({
                           )}
                         </td>
                         <td className="py-4 px-6 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleOpenEdit(u)}
-                              className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                              title="Editar Usuário"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(u)}
-                              disabled={u.email.toLowerCase() === userEmail.toLowerCase()}
-                              className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                                u.active 
-                                  ? 'hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500' 
-                                  : 'hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500'
-                              } disabled:opacity-30 disabled:hover:bg-transparent`}
-                              title={u.active ? "Inativar Usuário" : "Ativar Usuário"}
-                            >
-                              {u.active ? (
-                                <UserX className="h-4 w-4" />
-                              ) : (
-                                <UserCheck className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
+                          {(() => {
+                            const isTargetAdmin = u.role === 'SMS_ADMIN'
+                            const canManageUser = userRole === 'SMS_ADMIN' || !isTargetAdmin
+                            const isSelf = u.email.toLowerCase() === userEmail.toLowerCase()
+
+                            return (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => handleOpenEdit(u)}
+                                  disabled={!canManageUser}
+                                  className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                                  title={!canManageUser ? "Apenas Administradores podem gerenciar contas de Administrador" : "Editar Usuário"}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleToggleActive(u)}
+                                  disabled={isSelf || !canManageUser}
+                                  className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                                    u.active 
+                                      ? 'hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500' 
+                                      : 'hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-500'
+                                  } disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-transparent`}
+                                  title={
+                                    isSelf 
+                                      ? "Você não pode alterar sua própria conta" 
+                                      : !canManageUser 
+                                        ? "Apenas Administradores podem alterar o status de um Administrador" 
+                                        : (u.active ? "Inativar Usuário" : "Ativar Usuário")
+                                  }
+                                >
+                                  {u.active ? (
+                                    <UserX className="h-4 w-4" />
+                                  ) : (
+                                    <UserCheck className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            )
+                          })()}
                         </td>
                       </tr>
                     )
@@ -502,7 +552,7 @@ export function UsuariosClient({
                     onChange={(e) => setRole(e.target.value)}
                     className="block w-full rounded-2xl border border-border/50 bg-background/50 py-3.5 px-4 text-xs text-foreground outline-none focus:border-primary transition-all"
                   >
-                    {DISPONIVEIS_ROLES.map(r => (
+                    {formRoles.map(r => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>

@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function createUserAction(formData: {
@@ -15,6 +16,34 @@ export async function createUserAction(formData: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('Erro de Configuração: SUPABASE_SERVICE_ROLE_KEY não está configurado.')
     return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
+  }
+
+  // Validar permissão do usuário que está executando a ação
+  const authSupabase = await createClient()
+  const { data: { user: callerAuth }, error: callerAuthError } = await authSupabase.auth.getUser()
+
+  if (callerAuthError || !callerAuth) {
+    return { success: false, error: 'Sessão inválida ou expirada. Faça login novamente.' }
+  }
+
+  const { data: callerProfile } = await authSupabase
+    .from('users')
+    .select('role')
+    .eq('id', callerAuth.id)
+    .single()
+
+  const callerRole = callerProfile?.role || ''
+
+  if (!['SMS_ADMIN', 'COORDENADOR'].includes(callerRole)) {
+    return { success: false, error: 'Permissão negada. Você não possui privilégios para gerenciar usuários.' }
+  }
+
+  // REGRA ESTRITA: Apenas SMS_ADMIN pode criar outro SMS_ADMIN
+  if (formData.role === 'SMS_ADMIN' && callerRole !== 'SMS_ADMIN') {
+    return { 
+      success: false, 
+      error: 'Permissão negada: Apenas um Administrador Geral pode cadastrar outro usuário com o perfil de Administrador.' 
+    }
   }
 
   const supabase = createAdminClient()
@@ -78,7 +107,50 @@ export async function updateUserAction(
     return { success: false, error: 'Erro de Configuração: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor.' }
   }
 
+  // Validar permissão do usuário que está executando a ação
+  const authSupabase = await createClient()
+  const { data: { user: callerAuth }, error: callerAuthError } = await authSupabase.auth.getUser()
+
+  if (callerAuthError || !callerAuth) {
+    return { success: false, error: 'Sessão inválida ou expirada. Faça login novamente.' }
+  }
+
+  const { data: callerProfile } = await authSupabase
+    .from('users')
+    .select('role')
+    .eq('id', callerAuth.id)
+    .single()
+
+  const callerRole = callerProfile?.role || ''
+
+  if (!['SMS_ADMIN', 'COORDENADOR'].includes(callerRole)) {
+    return { success: false, error: 'Permissão negada. Você não possui privilégios para gerenciar usuários.' }
+  }
+
   const supabase = createAdminClient()
+
+  // Buscar dados atuais do usuário alvo
+  const { data: targetUser } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .single()
+
+  // REGRA ESTRITA: Apenas SMS_ADMIN pode modificar ou alterar status de outro SMS_ADMIN
+  if (targetUser?.role === 'SMS_ADMIN' && callerRole !== 'SMS_ADMIN') {
+    return { 
+      success: false, 
+      error: 'Permissão negada: Apenas um Administrador Geral pode modificar ou inativar contas de Administrador.' 
+    }
+  }
+
+  // REGRA ESTRITA: Apenas SMS_ADMIN pode promover ou atribuir a role SMS_ADMIN
+  if (formData.role === 'SMS_ADMIN' && callerRole !== 'SMS_ADMIN') {
+    return { 
+      success: false, 
+      error: 'Permissão negada: Apenas um Administrador Geral pode conceder o perfil de Administrador.' 
+    }
+  }
 
   // 1. Atualizar na tabela pública
   const { error: profileError } = await supabase
