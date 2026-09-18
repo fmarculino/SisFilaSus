@@ -65,6 +65,7 @@ export function ImportacaoEsusTab() {
   // Status do Agente no Servidor
   const [isAgentOnline, setIsAgentOnline] = useState<boolean>(false)
   const [agentIdentifier, setAgentIdentifier] = useState<string>('')
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState<number>(0)
 
   // 1. Checar status do Agente Local periodicamente
   useEffect(() => {
@@ -76,11 +77,11 @@ export function ImportacaoEsusTab() {
       }
     }
     checkAgent()
-    const agentInterval = setInterval(checkAgent, 15000)
+    const agentInterval = setInterval(checkAgent, 10000)
     return () => clearInterval(agentInterval)
   }, [])
 
-  // 2. Carregar status do último job e fazer polling dinâmico
+  // 2. Carregar status do último job e fazer polling dinâmico de 1s
   useEffect(() => {
     let timer: NodeJS.Timeout
 
@@ -94,13 +95,35 @@ export function ImportacaoEsusTab() {
     fetchLatestJob()
 
     if (syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO') {
-      timer = setInterval(fetchLatestJob, 2500)
+      timer = setInterval(fetchLatestJob, 1000)
     }
 
     return () => {
       if (timer) clearInterval(timer)
     }
   }, [syncJob?.status])
+
+  // 2.1 Cronômetro ao vivo em tempo real para não parecer travado
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO') {
+      const calcElapsed = () => {
+        const start = syncJob.started_at ? new Date(syncJob.started_at).getTime() : new Date(syncJob.created_at).getTime()
+        return Math.max(0, Math.round((Date.now() - start) / 1000))
+      }
+      setLiveElapsedSeconds(calcElapsed())
+
+      timer = setInterval(() => {
+        setLiveElapsedSeconds(calcElapsed())
+      }, 1000)
+    } else if (syncJob?.tempo_decorrido_segundos !== undefined) {
+      setLiveElapsedSeconds(syncJob.tempo_decorrido_segundos)
+    }
+
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [syncJob?.status, syncJob?.started_at, syncJob?.created_at, syncJob?.tempo_decorrido_segundos])
 
   // 3. Polling de Prévia (quando solicitada)
   useEffect(() => {
@@ -559,9 +582,7 @@ export function ImportacaoEsusTab() {
               )}
 
               <div className="flex items-center gap-2">
-                {syncJob.tempo_decorrido_segundos !== undefined && (
-                  <span>Decorrido: <strong className="text-foreground">{syncJob.tempo_decorrido_segundos}s</strong></span>
-                )}
+                <span>Decorrido: <strong className="text-foreground">{liveElapsedSeconds}s</strong></span>
                 {(syncJob.status === 'PENDENTE' || syncJob.status === 'PROCESSANDO') && (
                   <button
                     onClick={() => handleCancelarSync(syncJob.id)}

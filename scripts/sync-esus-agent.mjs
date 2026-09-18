@@ -64,6 +64,19 @@ async function runAgent() {
         await sendHeartbeat()
       }
 
+      // 1.5 Limpar eventuais jobs órfãos em 'PROCESSANDO' há mais de 5 minutos
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      await supabase
+        .from('esus_sync_jobs')
+        .update({
+          status: 'ERRO',
+          completed_at: new Date().toISOString(),
+          mensagem_erro: 'Tempo limite excedido ou agente reiniciado.',
+          mensagem_status: 'Interrompido por inatividade.'
+        })
+        .eq('status', 'PROCESSANDO')
+        .lt('updated_at', fiveMinAgo)
+
       // 2. Buscar job pendente mais antigo (prioriza PREVIA se houver)
       const { data: job, error } = await supabase
         .from('esus_sync_jobs')
@@ -152,7 +165,6 @@ async function safeUpdateJob(supabase, jobId, payload) {
 async function processSyncJob(supabase, job) {
   const isAll = !!job.parametros?.all
   const days = job.parametros?.dias || (isAll ? undefined : 30)
-  const batchSize = 500
   const startTime = Date.now()
 
   console.log(`\n🚀 [INICIANDO SINCRONIZAÇÃO] Job #${job.id.substring(0, 8)}`)
@@ -171,6 +183,9 @@ async function processSyncJob(supabase, job) {
     }
   }
 
+  // Lotes dinâmicos para atualização frequente do progresso em tempo real na tela (a cada 2-4 segundos)
+  // Ex: 345 registros -> lotes de 30 (12 atualizações parciais); 1000 registros -> lotes de ~80
+  const batchSize = Math.max(25, Math.min(100, Math.ceil((totalEstimado || 300) / 12)))
   const tempoEstimadoSegundos = Math.max(10, Math.ceil(totalEstimado / 80))
 
   await safeUpdateJob(supabase, job.id, {
@@ -228,7 +243,7 @@ async function processSyncJob(supabase, job) {
         total_processado: totalProcessados,
         progresso_pct: progressoPct,
         tempo_decorrido_segundos: tempoDecorridoSec,
-        mensagem_status: `Processando lote ${batchIndex}... (${totalProcessados.toLocaleString('pt-BR')} de ${totalEstimado.toLocaleString('pt-BR')} cidadãos | ${totalPacientesEnriquecidos} pacientes enriquecidos)`,
+        mensagem_status: `Processando lote ${batchIndex}... (${totalProcessados.toLocaleString('pt-BR')} de ${totalEstimado.toLocaleString('pt-BR')} | +${totalPacientesEnriquecidos} enriquecidos)`,
         stats: {
           totalLidos: totalProcessados,
           totalSalvosEsus: totalSalvosEsus,
