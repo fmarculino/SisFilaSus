@@ -1,14 +1,14 @@
-'use client'
-
 import React, { useState, useRef, useEffect } from 'react'
 import { 
   FolderUp, Upload, CheckCircle2, AlertCircle, RefreshCw, 
   FileText, ShieldCheck, Users, PhoneCall, MapPin, Database, ChevronRight, X,
-  Server, Zap, Clock, PlayCircle
+  Server, Zap, Clock, PlayCircle, Download, Check, HelpCircle, Activity, Info
 } from 'lucide-react'
 import { 
+  solicitarPreviaEsusAction,
   solicitarSincronizacaoEsusAction, 
   obterUltimoJobSincronizacaoAction, 
+  verificarAgenteOnlineAction,
   cancelarJobSincronizacaoAction, 
   EsusSyncJob 
 } from './esus-sync-actions'
@@ -54,15 +54,38 @@ export function ImportacaoEsusTab() {
   // Estados da Sincronização Direta com o e-SUS PEC (Agente Local)
   const [syncJob, setSyncJob] = useState<EsusSyncJob | null>(null)
   const [isSubmittingSync, setIsSubmittingSync] = useState(false)
-  const [syncPeriod, setSyncPeriod] = useState<'30' | '7' | 'all'>('30')
-  const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [syncPeriod, setSyncPeriod] = useState<'7' | '15' | '30' | '60' | '90' | 'custom' | 'all'>('30')
+  const [customDays, setCustomDays] = useState<number>(45)
+  const [syncMsg, setSyncMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
-  // Carregar status do último job e fazer polling quando estiver ativo
-  React.useEffect(() => {
+  // Estados de Prévia
+  const [previewJob, setPreviewJob] = useState<EsusSyncJob | null>(null)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+
+  // Status do Agente no Servidor
+  const [isAgentOnline, setIsAgentOnline] = useState<boolean>(false)
+  const [agentIdentifier, setAgentIdentifier] = useState<string>('')
+
+  // 1. Checar status do Agente Local periodicamente
+  useEffect(() => {
+    const checkAgent = async () => {
+      const res = await verificarAgenteOnlineAction()
+      if (res.success) {
+        setIsAgentOnline(res.status.online)
+        if (res.status.identificador) setAgentIdentifier(res.status.identificador)
+      }
+    }
+    checkAgent()
+    const agentInterval = setInterval(checkAgent, 15000)
+    return () => clearInterval(agentInterval)
+  }, [])
+
+  // 2. Carregar status do último job e fazer polling dinâmico
+  useEffect(() => {
     let timer: NodeJS.Timeout
 
     const fetchLatestJob = async () => {
-      const res = await obterUltimoJobSincronizacaoAction()
+      const res = await obterUltimoJobSincronizacaoAction('SINCRONIZACAO')
       if (res.success && res.job) {
         setSyncJob(res.job)
       }
@@ -71,7 +94,7 @@ export function ImportacaoEsusTab() {
     fetchLatestJob()
 
     if (syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO') {
-      timer = setInterval(fetchLatestJob, 4000)
+      timer = setInterval(fetchLatestJob, 2500)
     }
 
     return () => {
@@ -79,18 +102,76 @@ export function ImportacaoEsusTab() {
     }
   }, [syncJob?.status])
 
-  const handleSolicitarSync = async () => {
+  // 3. Polling de Prévia (quando solicitada)
+  useEffect(() => {
+    if (!isLoadingPreview || !previewJob?.id) return
+
+    const checkPreview = async () => {
+      const res = await obterUltimoJobSincronizacaoAction('PREVIA')
+      if (res.success && res.job && res.job.id === previewJob.id) {
+        if (res.job.status === 'CONCLUIDO' || res.job.status === 'ERRO') {
+          setPreviewJob(res.job)
+          setIsLoadingPreview(false)
+          if (res.job.status === 'ERRO') {
+            setSyncMsg({ type: 'error', text: res.job.mensagem_erro || 'Falha ao consultar prévia.' })
+          }
+        }
+      }
+    }
+
+    const interval = setInterval(checkPreview, 1500)
+    return () => clearInterval(interval)
+  }, [isLoadingPreview, previewJob?.id])
+
+  const getEffectiveDays = () => {
+    if (syncPeriod === 'all') return undefined
+    if (syncPeriod === 'custom') return customDays > 0 ? customDays : 30
+    return parseInt(syncPeriod, 10)
+  }
+
+  // Ação de solicitar Prévia (Contagem e Tempo Estimado)
+  const handleSolicitarPrevia = async () => {
+    setIsLoadingPreview(true)
+    setSyncMsg(null)
+    setPreviewJob(null)
+
+    const isAll = syncPeriod === 'all'
+    const days = getEffectiveDays()
+
+    try {
+      const res = await solicitarPreviaEsusAction(days, isAll)
+      if (res.success && res.job) {
+        setPreviewJob(res.job)
+      } else {
+        setIsLoadingPreview(false)
+        setSyncMsg({ type: 'error', text: res.error || 'Erro ao solicitar prévia.' })
+      }
+    } catch (err: any) {
+      setIsLoadingPreview(false)
+      setSyncMsg({ type: 'error', text: err.message })
+    }
+  }
+
+  // Ação de Iniciar a Sincronização (Com ou sem prévia)
+  const handleConfirmarSincronizacao = async () => {
     setIsSubmittingSync(true)
     setSyncMsg(null)
+
+    const isAll = syncPeriod === 'all'
+    const days = getEffectiveDays()
+    const totalEstimado = previewJob?.total_estimado || 0
+
     try {
-      const isAll = syncPeriod === 'all'
-      const days = isAll ? undefined : parseInt(syncPeriod, 10)
-      const res = await solicitarSincronizacaoEsusAction(days, isAll)
+      const res = await solicitarSincronizacaoEsusAction(days, isAll, totalEstimado)
       if (res.success && res.job) {
         setSyncJob(res.job)
-        setSyncMsg({ type: 'success', text: 'Solicitação de sincronização enviada! O Agente Local iniciará o processamento.' })
+        setPreviewJob(null) // Fecha card de prévia
+        setSyncMsg({ 
+          type: 'info', 
+          text: 'Sincronização iniciada! Acompanhe o progresso em tempo real abaixo.' 
+        })
       } else {
-        setSyncMsg({ type: 'error', text: res.error || 'Erro ao registrar solicitação.' })
+        setSyncMsg({ type: 'error', text: res.error || 'Erro ao iniciar sincronização.' })
       }
     } catch (err: any) {
       setSyncMsg({ type: 'error', text: err.message })
@@ -101,7 +182,7 @@ export function ImportacaoEsusTab() {
 
   const handleCancelarSync = async (jobId: string) => {
     await cancelarJobSincronizacaoAction(jobId)
-    const res = await obterUltimoJobSincronizacaoAction()
+    const res = await obterUltimoJobSincronizacaoAction('SINCRONIZACAO')
     if (res.success && res.job) setSyncJob(res.job)
   }
 
@@ -259,10 +340,12 @@ export function ImportacaoEsusTab() {
       </div>
 
       {/* ========================================================================= */}
-      {/* NOVO: CARD DE SINCRONIZAÇÃO DIRETA COM BANCO e-SUS PEC (AGENTE LOCAL)    */}
+      {/* CARD DE SINCRONIZAÇÃO DIRETA COM BANCO e-SUS PEC (AGENTE LOCAL 24X7)     */}
       {/* ========================================================================= */}
-      <div className="bento-card p-6 border border-primary/20 bg-gradient-to-br from-primary/[0.04] via-background/60 to-emerald-500/[0.04] rounded-3xl relative overflow-hidden shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="bento-card p-6 border border-primary/20 bg-gradient-to-br from-primary/[0.04] via-background/60 to-emerald-500/[0.04] rounded-3xl relative overflow-hidden shadow-sm space-y-6">
+        
+        {/* Cabeçalho do Card com Status do Agente e Download */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-border/50">
           <div className="flex items-start gap-4">
             <div className="p-3.5 rounded-2xl bg-primary/10 text-primary shrink-0 shadow-sm">
               <Server className="w-6 h-6" />
@@ -272,103 +355,253 @@ export function ImportacaoEsusTab() {
                 <h4 className="text-base font-bold text-foreground">
                   Sincronização Direta do Banco e-SUS PEC
                 </h4>
-                {syncJob?.status === 'PENDENTE' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
-                    <Clock className="w-3.5 h-3.5" /> Aguardando Agente Local
-                  </span>
-                )}
-                {syncJob?.status === 'PROCESSANDO' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Agente Processando...
-                  </span>
-                )}
-                {syncJob?.status === 'CONCLUIDO' && (
+                
+                {/* Badge de Status do Agente no Servidor */}
+                {isAgentOnline ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Concluído com Sucesso
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Agente Online no Servidor {agentIdentifier ? `(${agentIdentifier})` : ''}
                   </span>
-                )}
-                {syncJob?.status === 'ERRO' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20">
-                    <AlertCircle className="w-3.5 h-3.5" /> Falha na Última Execução
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/60">
+                    <span className="w-2 h-2 rounded-full bg-muted-foreground/50"></span>
+                    Agente Desconectado
                   </span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-                Dispara a sincronização diretamente no PostgreSQL do servidor e-SUS da rede local via <strong>Agente SisFilaSUS</strong>, atualizando contatos e endereços dos pacientes regulados sem precisar manipular planilhas CSV.
+                Puxa cadastros, endereços e telefones atualizados direto do PostgreSQL do e-SUS PEC via <strong>Agente Windows 24x7</strong>.
               </p>
             </div>
           </div>
 
-          {/* Controles de Disparo */}
-          <div className="flex items-center gap-3 shrink-0">
-            <select
-              value={syncPeriod}
-              onChange={(e) => setSyncPeriod(e.target.value as any)}
-              disabled={isSubmittingSync || syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO'}
-              className="text-xs bg-background/80 border border-border/80 rounded-xl px-3 py-2.5 font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+          {/* Botão de Download do Agente */}
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href="/downloads/SisFilaSusAgent.zip"
+              download="SisFilaSusAgent.zip"
+              className="btn btn-outline border-border/80 hover:bg-muted/50 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-foreground transition-all shadow-sm"
+              title="Baixar executável do Agente para rodar no servidor do e-SUS"
             >
-              <option value="30">Últimos 30 dias (Recomendado)</option>
-              <option value="7">Últimos 7 dias</option>
-              <option value="all">Base Completa (57.000+)</option>
-            </select>
+              <Download className="w-3.5 h-3.5 text-primary" />
+              Baixar Agente Windows (.zip)
+            </a>
+          </div>
+        </div>
 
+        {/* Linha de Configuração do Período e Ações */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              Período de Atualização:
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={syncPeriod}
+                onChange={(e) => {
+                  setSyncPeriod(e.target.value as any)
+                  setPreviewJob(null) // Reseta prévia ao trocar
+                }}
+                disabled={isSubmittingSync || syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO'}
+                className="text-xs bg-background/80 border border-border/80 rounded-xl px-3.5 py-2 font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm"
+              >
+                <option value="7">Últimos 7 dias (Mais Rápido)</option>
+                <option value="15">Últimos 15 dias</option>
+                <option value="30">Últimos 30 dias (Recomendado)</option>
+                <option value="60">Últimos 60 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="custom">Personalizado (dias)...</option>
+                <option value="all">Base Completa (Todos os 57.000+)</option>
+              </select>
+
+              {syncPeriod === 'custom' && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={customDays}
+                    onChange={(e) => {
+                      setCustomDays(parseInt(e.target.value, 10) || 1)
+                      setPreviewJob(null)
+                    }}
+                    className="w-20 text-xs bg-background border border-border/80 rounded-xl px-2.5 py-2 text-foreground font-semibold"
+                  />
+                  <span className="text-xs text-muted-foreground font-medium">dias</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="flex items-center gap-2.5">
+            {/* Botão de Prévia (Estimativa) */}
             <button
-              onClick={handleSolicitarSync}
-              disabled={isSubmittingSync || syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO'}
-              className="btn btn-primary px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-primary/20 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+              onClick={handleSolicitarPrevia}
+              disabled={isLoadingPreview || isSubmittingSync || syncJob?.status === 'PROCESSANDO'}
+              className="btn btn-outline border-primary/30 hover:bg-primary/5 text-primary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
             >
-              {isSubmittingSync ? (
+              {isLoadingPreview ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Solicitando...
-                </>
-              ) : syncJob?.status === 'PROCESSANDO' ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Em Andamento...
-                </>
-              ) : syncJob?.status === 'PENDENTE' ? (
-                <>
-                  <Clock className="w-4 h-4" />
-                  Na Fila...
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Calculando Prévia...
                 </>
               ) : (
                 <>
-                  <Zap className="w-4 h-4 text-amber-300" />
-                  Sincronizar e-SUS Agora
+                  <Activity className="w-3.5 h-3.5" />
+                  Calcular Prévia
+                </>
+              )}
+            </button>
+
+            {/* Botão de Início Direto */}
+            <button
+              onClick={handleConfirmarSincronizacao}
+              disabled={isSubmittingSync || syncJob?.status === 'PENDENTE' || syncJob?.status === 'PROCESSANDO'}
+              className="btn btn-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-primary/20 hover:shadow-md hover:shadow-primary/30 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {isSubmittingSync ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Iniciando...
+                </>
+              ) : syncJob?.status === 'PROCESSANDO' ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Processando...
+                </>
+              ) : syncJob?.status === 'PENDENTE' ? (
+                <>
+                  <Clock className="w-3.5 h-3.5" />
+                  Na Fila do Agente...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-amber-300" />
+                  Iniciar Sincronização
                 </>
               )}
             </button>
           </div>
         </div>
 
+        {/* Card de PRÉVIA / ESTIMATIVA (Antes de iniciar) */}
+        {previewJob && previewJob.status === 'CONCLUIDO' && (
+          <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-xs font-bold text-foreground">
+                  Prévia da Sincronização Encontrada:
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                Existem <strong className="text-foreground">{previewJob.total_estimado?.toLocaleString('pt-BR')} cidadãos</strong> com 
+                atualizações no período selecionado ({syncPeriod === 'all' ? 'Base Completa' : `Últimos ${getEffectiveDays()} dias`}). 
+                Tempo estimado: <strong className="text-foreground">~{previewJob.tempo_estimado_segundos} segundos</strong>.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pl-6 md:pl-0 shrink-0">
+              <button
+                onClick={handleConfirmarSincronizacao}
+                disabled={isSubmittingSync}
+                className="btn btn-primary px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              >
+                <PlayCircle className="w-3.5 h-3.5" />
+                Confirmar e Iniciar
+              </button>
+              <button
+                onClick={() => setPreviewJob(null)}
+                className="btn btn-ghost px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* BARRA DE PROGRESSO EM TEMPO REAL ANTI-TRAVAMENTO                          */}
+        {/* ========================================================================= */}
+        {syncJob && (syncJob.status === 'PROCESSANDO' || syncJob.status === 'PENDENTE') && (
+          <div className="p-4 rounded-2xl bg-card/80 border border-primary/30 shadow-sm space-y-3 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 font-semibold text-foreground">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span>{syncJob.mensagem_status || 'Processando sincronização com o e-SUS...'}</span>
+              </div>
+              <span className="font-bold text-primary text-sm">
+                {syncJob.progresso_pct || 0}%
+              </span>
+            </div>
+
+            {/* Barra Visual com Gradiente */}
+            <div className="w-full h-3 bg-muted/60 rounded-full overflow-hidden p-0.5 border border-border/40">
+              <div 
+                className="h-full bg-gradient-to-r from-primary via-emerald-500 to-primary rounded-full transition-all duration-500 ease-out shadow-sm"
+                style={{ width: `${Math.max(4, syncJob.progresso_pct || 0)}%` }}
+              />
+            </div>
+
+            {/* Métricas ao Vivo durante o processamento */}
+            <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-muted-foreground pt-1">
+              <span>
+                Processados: <strong className="text-foreground">{(syncJob.total_processado || 0).toLocaleString('pt-BR')}</strong> de <strong className="text-foreground">{(syncJob.total_estimado || 0).toLocaleString('pt-BR')}</strong>
+              </span>
+
+              {syncJob.stats && (
+                <div className="flex items-center gap-3">
+                  <span>🎯 SisFila: <strong className="text-emerald-600 dark:text-emerald-400">+{syncJob.stats.totalPacientesEnriquecidos || 0}</strong></span>
+                  <span>📞 Telefones: <strong className="text-primary">+{syncJob.stats.totalTelefonesAdicionados || 0}</strong></span>
+                  <span>📍 Endereços: <strong className="text-foreground">+{syncJob.stats.totalEnderecosAtualizados || 0}</strong></span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                {syncJob.tempo_decorrido_segundos !== undefined && (
+                  <span>Decorrido: <strong className="text-foreground">{syncJob.tempo_decorrido_segundos}s</strong></span>
+                )}
+                {syncJob.status === 'PENDENTE' && (
+                  <button
+                    onClick={() => handleCancelarSync(syncJob.id)}
+                    className="text-destructive hover:underline font-semibold ml-2"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mensagem de Feedback */}
         {syncMsg && (
-          <div className={`mt-4 p-3 rounded-2xl text-xs font-medium flex items-center gap-2.5 ${syncMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' : 'bg-destructive/10 text-destructive border border-destructive/20'}`}>
+          <div className={`p-3 rounded-2xl text-xs font-medium flex items-center gap-2.5 ${
+            syncMsg.type === 'success' 
+              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' 
+              : syncMsg.type === 'info'
+              ? 'bg-primary/10 text-primary border border-primary/20'
+              : 'bg-destructive/10 text-destructive border border-destructive/20'
+          }`}>
             {syncMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
             <span>{syncMsg.text}</span>
           </div>
         )}
 
-        {/* Resumo do Status Atual ou Último Job */}
-        {syncJob && (
-          <div className="mt-4 pt-4 border-t border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        {/* Resumo da Última Execução Concluída */}
+        {syncJob && syncJob.status === 'CONCLUIDO' && (
+          <div className="pt-3 border-t border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="font-semibold text-foreground">Status Atual:</span>
-              <span>{syncJob.mensagem_status || 'Nenhuma mensagem disponível.'}</span>
-              {syncJob.status === 'PENDENTE' && (
-                <button
-                  onClick={() => handleCancelarSync(syncJob.id)}
-                  className="text-destructive hover:underline ml-2 font-semibold"
-                >
-                  Cancelar
-                </button>
-              )}
+              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                <CheckCircle2 className="w-4 h-4" /> Concluído:
+              </span>
+              <span>{syncJob.mensagem_status}</span>
             </div>
 
             {syncJob.stats && syncJob.stats.totalLidos !== undefined && (
               <div className="flex items-center gap-4 flex-wrap text-muted-foreground">
-                <span>Lidos: <strong className="text-foreground">{syncJob.stats.totalLidos}</strong></span>
+                <span>Lidos: <strong className="text-foreground">{syncJob.stats.totalLidos.toLocaleString('pt-BR')}</strong></span>
                 <span>Enriquecidos: <strong className="text-emerald-600 dark:text-emerald-400">+{syncJob.stats.totalPacientesEnriquecidos || 0}</strong></span>
                 <span>Telefones: <strong className="text-primary">+{syncJob.stats.totalTelefonesAdicionados || 0}</strong></span>
                 <span>Endereços: <strong className="text-foreground">+{syncJob.stats.totalEnderecosAtualizados || 0}</strong></span>
@@ -377,6 +610,7 @@ export function ImportacaoEsusTab() {
             )}
           </div>
         )}
+
       </div>
 
       {/* Divisor Visual */}

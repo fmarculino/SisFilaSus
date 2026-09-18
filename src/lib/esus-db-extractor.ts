@@ -73,6 +73,31 @@ export async function testEsusDbConnection(config?: EsusDbConfig): Promise<{
     if (pool) await pool.end().catch(() => {})
   }
 }
+/**
+ * Retorna contagem rápida de cidadãos a serem atualizados no período
+ */
+export async function countCidadaosInPeriod(
+  pool: pg.Pool,
+  diasRecentes?: number
+): Promise<number> {
+  const client = await pool.connect()
+  try {
+    let query = `
+      SELECT count(*) as total
+      FROM tb_cidadao c
+      WHERE c.st_ativo = 1 AND (c.nu_cpf IS NOT NULL OR c.nu_cns IS NOT NULL)
+    `
+    const params: any[] = []
+    if (diasRecentes && diasRecentes > 0) {
+      params.push(diasRecentes)
+      query += ` AND (c.dt_atualizado >= NOW() - ($1 || ' days')::interval)`
+    }
+    const res = await client.query(query, params)
+    return parseInt(res.rows[0]?.total || '0', 10)
+  } finally {
+    client.release()
+  }
+}
 
 /**
  * Opções para extração de dados

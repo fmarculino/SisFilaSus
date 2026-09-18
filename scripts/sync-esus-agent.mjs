@@ -1,18 +1,25 @@
 import os from 'os'
 import { createAdminClient } from '../src/utils/supabase/admin.ts'
-import { createEsusDbPool, extractCidadaosFromEsusDb, testEsusDbConnection } from '../src/lib/esus-db-extractor.ts'
+import { 
+  createEsusDbPool, 
+  extractCidadaosFromEsusDb, 
+  countCidadaosInPeriod, 
+  testEsusDbConnection 
+} from '../src/lib/esus-db-extractor.ts'
 import { processEsusCidadaosBatch } from '../src/lib/esus-importer.ts'
 
-const POLL_INTERVAL_MS = 5000 // Verifica a cada 5 segundos
+const POLL_INTERVAL_MS = 3000 // Checa pedidos a cada 3 segundos
+const HEARTBEAT_INTERVAL_MS = 15000 // Heartbeat a cada 15 segundos
 const AGENT_ID = `SMS-AGENT-${os.hostname()}`
+const AGENT_VERSION = '1.2.0'
 
 async function runAgent() {
   console.log('===============================================================')
   console.log('🤖  SisFilaSUS - Agente Ouvinte de Sincronização e-SUS PEC')
   console.log('===============================================================')
-  console.log(`🆔 Identificador do Agente: ${AGENT_ID}`)
+  console.log(`🆔 Identificador do Agente: ${AGENT_ID} (v${AGENT_VERSION})`)
   console.log(`📡 Servidor e-SUS Local: ${process.env.ESUS_DB_HOST || '10.110.2.8'}:${process.env.ESUS_DB_PORT || '5433'}`)
-  console.log(`⏳ Aguardando solicitações vindas do sistema SisFilaSUS...`)
+  console.log(`⏳ Aguardando solicitações do SisFilaSUS (Prévia & Sincronização)...`)
   console.log('---------------------------------------------------------------\n')
 
   const supabase = createAdminClient()
@@ -21,18 +28,48 @@ async function runAgent() {
   const testConn = await testEsusDbConnection()
   if (!testConn.ok) {
     console.warn(`⚠️  Atenção: Teste inicial com o banco e-SUS falhou: ${testConn.erro}`)
-    console.warn('O agente continuará rodando, mas certifique-se de que o PostgreSQL do e-SUS está ativo.')
   } else {
-    console.log(`✅ Banco e-SUS conectado e pronto! (${testConn.totalCidadaos?.toLocaleString('pt-BR')} cidadãos disponíveis)\n`)
+    console.log(`✅ Banco e-SUS local conectado e pronto! (${testConn.totalCidadaos?.toLocaleString('pt-BR')} cidadãos ativos)\n`)
+  }
+
+  // Loop de Heartbeat em background
+  let lastHeartbeat = 0
+  const sendHeartbeat = async () => {
+    try {
+      await supabase
+        .from('esus_agentes')
+        .upsert({
+          identificador: AGENT_ID,
+          versao: AGENT_VERSION,
+          status: 'ONLINE',
+          ultimo_heartbeat: new Date().toISOString(),
+          metadados: {
+            hostname: os.hostname(),
+            platform: os.platform(),
+            arch: os.arch(),
+            esus_host: process.env.ESUS_DB_HOST || '10.110.2.8'
+          },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'identificador' })
+    } catch (e) {
+      // Falha silenciosa de heartbeat
+    }
   }
 
   while (true) {
     try {
-      // Buscar job pendente mais antigo (FIFO)
+      // 1. Enviar heartbeat periódico
+      if (Date.now() - lastHeartbeat > HEARTBEAT_INTERVAL_MS) {
+        lastHeartbeat = Date.now()
+        await sendHeartbeat()
+      }
+
+      // 2. Buscar job pendente mais antigo (prioriza PREVIA se houver)
       const { data: job, error } = await supabase
         .from('esus_sync_jobs')
         .select('*')
         .eq('status', 'PENDENTE')
+        .order('tipo', { ascending: false }) // PREVIA vem antes de SINCRONIZACAO
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -42,7 +79,11 @@ async function runAgent() {
           console.error('Erro ao consultar fila de jobs:', error.message)
         }
       } else if (job) {
-        await processJob(supabase, job)
+        if (job.tipo === 'PREVIA') {
+          await processPrevia(supabase, job)
+        } else {
+          await processSyncJob(supabase, job)
+        }
       }
     } catch (loopErr) {
       console.error('Erro no ciclo do agente:', loopErr.message)
@@ -52,28 +93,100 @@ async function runAgent() {
   }
 }
 
-async function processJob(supabase, job) {
+/**
+ * Processa pedido de PRÉVIA (apenas contagem e estimativa)
+ */
+async function processPrevia(supabase, job) {
   const isAll = !!job.parametros?.all
   const days = job.parametros?.dias || (isAll ? undefined : 30)
-  const batchSize = 500
-  const startTime = Date.now()
 
-  console.log(`\n🔔 [NOVO PEDIDO DETECTADO] Job #${job.id.substring(0, 8)}`)
-  console.log(`   • Solicitado por: ${job.solicitado_por || 'Operador SisFilaSUS'}`)
-  console.log(`   • Modo: ${isAll ? 'Base Completa' : `Últimos ${days} dias`}`)
+  console.log(`\n🔍 [PRÉVIA SOLICITADA] Job #${job.id.substring(0, 8)} | Modo: ${isAll ? 'Base Completa' : `Últimos ${days} dias`}`)
 
-  // 1. Assumir o job e marcar como PROCESSANDO
   await supabase
     .from('esus_sync_jobs')
     .update({
       status: 'PROCESSANDO',
       started_at: new Date().toISOString(),
       agente_identificador: AGENT_ID,
-      mensagem_status: 'Agente conectou no banco e-SUS. Iniciando extração dos dados...'
+      mensagem_status: 'Consultando quantidade no banco do e-SUS...'
     })
     .eq('id', job.id)
 
   const pool = createEsusDbPool()
+  try {
+    const totalEstimado = await countCidadaosInPeriod(pool, days)
+    const tempoEstimadoSegundos = Math.max(5, Math.ceil(totalEstimado / 80))
+
+    await supabase
+      .from('esus_sync_jobs')
+      .update({
+        status: 'CONCLUIDO',
+        completed_at: new Date().toISOString(),
+        total_estimado: totalEstimado,
+        tempo_estimado_segundos: tempoEstimadoSegundos,
+        mensagem_status: `Prévia calculada: ${totalEstimado.toLocaleString('pt-BR')} cidadãos identificados (~${tempoEstimadoSegundos}s estimados).`
+      })
+      .eq('id', job.id)
+
+    console.log(`   ✅ Prévia concluída: ${totalEstimado.toLocaleString('pt-BR')} cidadãos (~${tempoEstimadoSegundos}s estimados)\n`)
+  } catch (err) {
+    console.error(`   ❌ Erro ao calcular prévia:`, err.message)
+    await supabase
+      .from('esus_sync_jobs')
+      .update({
+        status: 'ERRO',
+        completed_at: new Date().toISOString(),
+        mensagem_erro: err.message,
+        mensagem_status: 'Falha ao consultar prévia no e-SUS.'
+      })
+      .eq('id', job.id)
+  } finally {
+    await pool.end().catch(() => {})
+  }
+}
+
+/**
+ * Processa a SINCRONIZAÇÃO COMPLETA com barra de progresso em tempo real
+ */
+async function processSyncJob(supabase, job) {
+  const isAll = !!job.parametros?.all
+  const days = job.parametros?.dias || (isAll ? undefined : 30)
+  const batchSize = 500
+  const startTime = Date.now()
+
+  console.log(`\n🚀 [INICIANDO SINCRONIZAÇÃO] Job #${job.id.substring(0, 8)}`)
+  console.log(`   • Solicitado por: ${job.solicitado_por || 'Operador SisFilaSUS'}`)
+  console.log(`   • Período: ${isAll ? 'Base Completa (Todos)' : `Últimos ${days} dias`}`)
+
+  const pool = createEsusDbPool()
+
+  // 1. Obter total exato antes de começar
+  let totalEstimado = job.total_estimado || 0
+  if (totalEstimado <= 0) {
+    try {
+      totalEstimado = await countCidadaosInPeriod(pool, days)
+    } catch (e) {
+      totalEstimado = 0
+    }
+  }
+
+  const tempoEstimadoSegundos = Math.max(10, Math.ceil(totalEstimado / 80))
+
+  await supabase
+    .from('esus_sync_jobs')
+    .update({
+      status: 'PROCESSANDO',
+      started_at: new Date().toISOString(),
+      agente_identificador: AGENT_ID,
+      total_estimado: totalEstimado,
+      total_processado: 0,
+      progresso_pct: 0,
+      tempo_estimado_segundos: tempoEstimadoSegundos,
+      tempo_decorrido_segundos: 0,
+      mensagem_status: `Conectado ao e-SUS. Extraindo dados (0 de ${totalEstimado.toLocaleString('pt-BR')})...`
+    })
+    .eq('id', job.id)
+
   let offset = 0
   let totalProcessados = 0
   let totalSalvosEsus = 0
@@ -97,14 +210,9 @@ async function processJob(supabase, job) {
       }
 
       const batchLabel = `e-SUS PEC DB - Lote ${batchIndex} (${offset + 1} a ${offset + cidadaosChunk.length})`
-      process.stdout.write(`   ⏳ [Lote ${batchIndex}] Processando ${cidadaosChunk.length} cidadãos... `)
+      const stats = await processEsusCidadaosBatch(cidadaosChunk, batchLabel)
 
-      const stats = await processEsusCidadaosBatch(
-        cidadaosChunk,
-        batchLabel
-      )
-
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      const elapsedChunk = ((Date.now() - t0) / 1000).toFixed(1)
       totalProcessados += cidadaosChunk.length
       totalSalvosEsus += stats.totalSalvoEsusBase
       totalPacientesEnriquecidos += stats.totalPacientesSisFilaEncontrados
@@ -112,20 +220,27 @@ async function processJob(supabase, job) {
       totalEnderecosAtualizados += stats.totalEnderecosAtualizados
       totalUnidadesVinculadas += stats.totalUnidadesVinculadas
 
-      console.log(`✅ ${elapsed}s | SisFila: +${stats.totalPacientesSisFilaEncontrados} | +${stats.totalTelefonesAdicionados} tels`)
+      const progressoPct = totalEstimado > 0 ? Math.min(99, Math.round((totalProcessados / totalEstimado) * 100)) : 50
+      const tempoDecorridoSec = Math.round((Date.now() - startTime) / 1000)
 
-      // Atualizar progresso parcial no job
+      console.log(`   ⏳ [Lote ${batchIndex}] ${totalProcessados}/${totalEstimado} (${progressoPct}%) em ${elapsedChunk}s | SisFila: +${stats.totalPacientesSisFilaEncontrados} | +${stats.totalTelefonesAdicionados} tels`)
+
+      // Atualizar progresso em tempo real no Supabase (alimenta a barra de progresso da web)
       await supabase
         .from('esus_sync_jobs')
         .update({
-          mensagem_status: `Processados ${totalProcessados.toLocaleString('pt-BR')} cidadãos... (${totalPacientesEnriquecidos} pacientes enriquecidos)`,
+          total_processado: totalProcessados,
+          progresso_pct: progressoPct,
+          tempo_decorrido_segundos: tempoDecorridoSec,
+          mensagem_status: `Processando lote ${batchIndex}... (${totalProcessados.toLocaleString('pt-BR')} de ${totalEstimado.toLocaleString('pt-BR')} cidadãos | ${totalPacientesEnriquecidos} pacientes enriquecidos)`,
           stats: {
             totalLidos: totalProcessados,
             totalSalvosEsus: totalSalvosEsus,
             totalPacientesEnriquecidos: totalPacientesEnriquecidos,
             totalTelefonesAdicionados: totalTelefonesAdicionados,
             totalEnderecosAtualizados: totalEnderecosAtualizados,
-            totalUnidadesVinculadas: totalUnidadesVinculadas
+            totalUnidadesVinculadas: totalUnidadesVinculadas,
+            tempoDecorrido: tempoDecorridoSec + 's'
           }
         })
         .eq('id', job.id)
@@ -138,15 +253,18 @@ async function processJob(supabase, job) {
       }
     }
 
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+    const totalTimeSec = Math.round((Date.now() - startTime) / 1000)
 
-    // Marcar job como CONCLUIDO
+    // Finalizar com 100% de progresso
     await supabase
       .from('esus_sync_jobs')
       .update({
         status: 'CONCLUIDO',
         completed_at: new Date().toISOString(),
-        mensagem_status: `Concluído com sucesso em ${totalTime}s!`,
+        total_processado: totalProcessados,
+        progresso_pct: 100,
+        tempo_decorrido_segundos: totalTimeSec,
+        mensagem_status: `Sincronização concluída com sucesso em ${totalTimeSec}s!`,
         stats: {
           totalLidos: totalProcessados,
           totalSalvosEsus: totalSalvosEsus,
@@ -154,22 +272,22 @@ async function processJob(supabase, job) {
           totalTelefonesAdicionados: totalTelefonesAdicionados,
           totalEnderecosAtualizados: totalEnderecosAtualizados,
           totalUnidadesVinculadas: totalUnidadesVinculadas,
-          tempoDecorrido: totalTime + 's'
+          tempoDecorrido: totalTimeSec + 's'
         }
       })
       .eq('id', job.id)
 
-    console.log(`🎉 [JOB CONCLUÍDO] #${job.id.substring(0, 8)} em ${totalTime}s`)
-    console.log(`   • ${totalProcessados} lidos | ${totalPacientesEnriquecidos} enriquecidos | +${totalTelefonesAdicionados} telefones\n`)
+    console.log(`🎉 [CONCLUÍDO COM SUCESSO] #${job.id.substring(0, 8)} em ${totalTimeSec}s!`)
+    console.log(`   • ${totalProcessados} lidos | ${totalPacientesEnriquecidos} enriquecidos | +${totalTelefonesAdicionados} novos telefones\n`)
   } catch (err) {
-    console.error(`❌ [FALHA NO JOB] #${job.id.substring(0, 8)}:`, err.message)
+    console.error(`❌ [FALHA NO PROCESSAMENTO]:`, err.message)
     await supabase
       .from('esus_sync_jobs')
       .update({
         status: 'ERRO',
         completed_at: new Date().toISOString(),
         mensagem_erro: err.message || 'Falha durante o processamento do lote.',
-        mensagem_status: 'Falha durante o processamento.'
+        mensagem_status: 'Falha durante a sincronização.'
       })
       .eq('id', job.id)
   } finally {
