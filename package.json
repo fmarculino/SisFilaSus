@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "import:esus": "npx tsx --env-file=.env.local scripts/import-esus-batch.mjs",
-    "sync:esus": "npx tsx --env-file=.env.local scripts/sync-esus-direct.mjs"
+    "sync:esus": "npx tsx --env-file=.env.local scripts/sync-esus-direct.mjs",
+    "sync:agent": "npx tsx --env-file=.env.local scripts/sync-esus-agent.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
