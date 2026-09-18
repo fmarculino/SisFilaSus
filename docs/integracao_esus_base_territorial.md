@@ -56,7 +56,7 @@ O sistema implementa um **Ciclo Virtuoso e Contínuo**:
    - O sistema processa sequencialmente arquivo por arquivo.
    - Indicadores de progresso e métricas acumuladas são exibidos em tempo real.
 
-### Opção B: Via Linha de Comando (CLI Batch)
+### Opção B: Via Linha de Comando (Arquivos CSV)
 Para processar grandes volumes ou pastas locais diretamente no terminal:
 ```bash
 npm run import:esus
@@ -65,6 +65,25 @@ npm run import:esus
 ```bash
 npm run import:esus "C:\caminho\para\outra\pasta"
 ```
+
+### Opção C: Sincronização Direta com o Banco de Dados e-SUS PEC (Sob Demanda)
+Para sincronizar diretamente do banco de dados PostgreSQL do e-SUS PEC local via rede interna:
+```bash
+# Sincroniza os cidadãos atualizados nos últimos 30 dias (recomendado para o dia a dia):
+npm run sync:esus
+
+# Sincroniza apenas atualizações recentes (ex: últimos 7 dias):
+npm run sync:esus -- --days=7
+
+# Sincroniza toda a base municipal (57.000+ cidadãos em lotes paginados):
+npm run sync:esus -- --all
+```
+
+> [!NOTE]
+> **Segurança e Privacidade:**
+> 1. As credenciais do banco e-SUS ficam salvas exclusivamente no arquivo `.env.local` na máquina da rede da SMS (protegido pelo `.gitignore` e nunca enviado ao repositório público).
+> 2. O acesso utiliza o usuário de leitura `esus_leitura` (somente comandos `SELECT`), sem nenhum risco de alteração ou travamento no e-SUS PEC.
+> 3. A conexão só funciona dentro da rede local (`10.110.2.x`), garantindo que nenhuma porta fique aberta para a internet.
 
 ---
 

@@ -96,44 +96,46 @@ export async function resolveUnidadeCnes(
  * 1. Alimenta/Atualiza a base territorial esus_cadastros
  * 2. Enriquece os pacientes existentes no SisFilaSUS (NUNCA insere novos pacientes)
  */
-export async function processEsusImport(
-  fileContent: string,
-  fileName: string,
-  cnesManual?: string | null
+/**
+ * Processa um lote de cidadãos do e-SUS (vindos de CSV ou diretamente do banco PostgreSQL):
+ * 1. Alimenta/Atualiza a base territorial esus_cadastros
+ * 2. Enriquece os pacientes existentes no SisFilaSUS (NUNCA insere novos pacientes na fila)
+ */
+export async function processEsusCidadaosBatch(
+  cidadaos: EsusCidadaoParsed[],
+  origemDescricao: string,
+  unidadeCnes?: string | null,
+  unidadeNome?: string | null,
+  totalLidoArquivo?: number,
+  totalCidadaosValidos?: number,
+  dataExportacao?: string | null
 ): Promise<EsusImportStats> {
   const supabase = createAdminClient()
 
-  // 1. Parser do arquivo CSV
-  const parsed = parseEsusCSV(fileContent, fileName)
-  const { cnes: unidadeCnes, nome: unidadeNome } = await resolveUnidadeCnes(
-    parsed.unidadeDetectada,
-    cnesManual
-  )
-
   const stats: EsusImportStats = {
-    nomeArquivo: fileName,
-    unidadeNome: unidadeNome || parsed.unidadeDetectada,
-    unidadeCnes,
-    totalLidoArquivo: parsed.totalLinhas,
-    totalCidadaosValidos: parsed.totalValidos,
+    nomeArquivo: origemDescricao,
+    unidadeNome: unidadeNome || null,
+    unidadeCnes: unidadeCnes || null,
+    totalLidoArquivo: totalLidoArquivo ?? cidadaos.length,
+    totalCidadaosValidos: totalCidadaosValidos ?? cidadaos.length,
     totalSalvoEsusBase: 0,
     totalPacientesSisFilaEncontrados: 0,
     totalPacientesSisFilaIgnorados: 0,
     totalEnderecosAtualizados: 0,
     totalTelefonesAdicionados: 0,
     totalUnidadesVinculadas: 0,
-    dataExportacao: parsed.dataExportacao
+    dataExportacao: dataExportacao ?? new Date().toISOString().split('T')[0]
   }
 
-  if (parsed.cidadaos.length === 0) {
+  if (cidadaos.length === 0) {
     return stats
   }
 
   // =========================================================================
   // FASE 1: Gravar/Atualizar na Base Territorial 'esus_cadastros'
   // =========================================================================
-  for (let i = 0; i < parsed.cidadaos.length; i += CHUNK_SIZE) {
-    const chunk = parsed.cidadaos.slice(i, i + CHUNK_SIZE)
+  for (let i = 0; i < cidadaos.length; i += CHUNK_SIZE) {
+    const chunk = cidadaos.slice(i, i + CHUNK_SIZE)
     const chunkCpfs = chunk.map(c => c.cpf).filter(Boolean) as string[]
     const chunkCns = chunk.map(c => c.cns).filter(Boolean) as string[]
 
@@ -162,7 +164,15 @@ export async function processEsusImport(
     const toUpdate: { id: string; payload: any }[] = []
 
     for (const c of chunk) {
-      const existing = (c.cpf && existingMap.get(c.cpf)) || (c.cns && existingMap.get(c.cns))
+      const existingByCpf = c.cpf ? existingMap.get(c.cpf) : null
+      const existingByCns = c.cns ? existingMap.get(c.cns) : null
+      let existing = existingByCpf || existingByCns
+
+      if (existingByCpf && existingByCns && existingByCpf.id !== existingByCns.id) {
+        // Unificar registros órfãos: mantém o que tem CPF e remove o duplicado por CNS
+        existing = existingByCpf
+        await supabase.from('esus_cadastros').delete().eq('id', existingByCns.id)
+      }
 
       if (existing) {
         // Mesclar telefones sem duplicar número
@@ -244,13 +254,13 @@ export async function processEsusImport(
   // FASE 2: Enriquecer Pacientes Existentes no SisFilaSUS (REGRA: NUNCA INSERIR)
   // =========================================================================
   const cidadaosPorDoc = new Map<string, EsusCidadaoParsed>()
-  parsed.cidadaos.forEach(c => {
+  cidadaos.forEach(c => {
     if (c.cpf) cidadaosPorDoc.set(c.cpf, c)
     if (c.cns) cidadaosPorDoc.set(c.cns, c)
   })
 
-  const todosCpfs = parsed.cidadaos.map(c => c.cpf).filter(Boolean) as string[]
-  const todosCns = parsed.cidadaos.map(c => c.cns).filter(Boolean) as string[]
+  const todosCpfs = cidadaos.map(c => c.cpf).filter(Boolean) as string[]
+  const todosCns = cidadaos.map(c => c.cns).filter(Boolean) as string[]
 
   const matchedPacientesMap = new Map<string, any>()
 
@@ -286,7 +296,7 @@ export async function processEsusImport(
 
   const matchedPacientes = Array.from(matchedPacientesMap.values())
   stats.totalPacientesSisFilaEncontrados = matchedPacientes.length
-  stats.totalPacientesSisFilaIgnorados = parsed.cidadaos.length - matchedPacientes.length
+  stats.totalPacientesSisFilaIgnorados = cidadaos.length - matchedPacientes.length
 
   if (matchedPacientes.length === 0) {
     return stats
@@ -438,6 +448,32 @@ export async function processEsusImport(
   }
 
   return stats
+}
+
+/**
+ * Importa um arquivo do e-SUS via conteúdo CSV (pela web ou batch local):
+ * Faz o parse das linhas e delega para processEsusCidadaosBatch
+ */
+export async function processEsusImport(
+  fileContent: string,
+  fileName: string,
+  cnesManual?: string | null
+): Promise<EsusImportStats> {
+  const parsed = parseEsusCSV(fileContent, fileName)
+  const { cnes: unidadeCnes, nome: unidadeNome } = await resolveUnidadeCnes(
+    parsed.unidadeDetectada,
+    cnesManual
+  )
+
+  return processEsusCidadaosBatch(
+    parsed.cidadaos,
+    fileName,
+    unidadeCnes,
+    unidadeNome || parsed.unidadeDetectada,
+    parsed.totalLinhas,
+    parsed.totalValidos,
+    parsed.dataExportacao
+  )
 }
 
 /**

@@ -17,6 +17,8 @@ export interface EsusCidadaoParsed {
   microarea: string | null
   telefones: EsusTelefone[]
   dataAtualizacaoEsus: string | null
+  unidadeCnes?: string | null
+  unidadeNome?: string | null
 }
 
 export interface EsusParseResult {
