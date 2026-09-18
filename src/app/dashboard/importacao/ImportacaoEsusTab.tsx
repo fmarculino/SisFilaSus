@@ -562,7 +562,7 @@ export function ImportacaoEsusTab() {
                 {syncJob.tempo_decorrido_segundos !== undefined && (
                   <span>Decorrido: <strong className="text-foreground">{syncJob.tempo_decorrido_segundos}s</strong></span>
                 )}
-                {syncJob.status === 'PENDENTE' && (
+                {(syncJob.status === 'PENDENTE' || syncJob.status === 'PROCESSANDO') && (
                   <button
                     onClick={() => handleCancelarSync(syncJob.id)}
                     className="text-destructive hover:underline font-semibold ml-2"
