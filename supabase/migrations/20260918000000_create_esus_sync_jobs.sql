@@ -40,6 +40,13 @@ CREATE TABLE IF NOT EXISTS public.esus_sync_jobs (
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 1.1. Garantir que todas as colunas existem caso a tabela já tenha sido criada anteriormente
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) DEFAULT 'SINCRONIZACAO' NOT NULL;
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS total_estimado INT DEFAULT 0;
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS progresso_pct INT DEFAULT 0;
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tempo_estimado_segundos INT DEFAULT 0;
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tempo_decorrido_segundos INT DEFAULT 0;
+
 -- 2. Tabela de Heartbeat / Registro dos Agentes Conectados
 CREATE TABLE IF NOT EXISTS public.esus_agentes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
