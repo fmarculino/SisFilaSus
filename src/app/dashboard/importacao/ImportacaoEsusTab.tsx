@@ -547,7 +547,7 @@ export function ImportacaoEsusTab() {
             {/* Métricas ao Vivo durante o processamento */}
             <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-muted-foreground pt-1">
               <span>
-                Processados: <strong className="text-foreground">{(syncJob.total_processado || 0).toLocaleString('pt-BR')}</strong> de <strong className="text-foreground">{(syncJob.total_estimado || 0).toLocaleString('pt-BR')}</strong>
+                Processados: <strong className="text-foreground">{(syncJob.total_processado || syncJob.stats?.totalLidos || 0).toLocaleString('pt-BR')}</strong> de <strong className="text-foreground">{(syncJob.total_estimado || 0).toLocaleString('pt-BR')}</strong>
               </span>
 
               {syncJob.stats && (

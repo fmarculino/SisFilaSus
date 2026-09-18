@@ -100,49 +100,50 @@ async function processPrevia(supabase, job) {
   const isAll = !!job.parametros?.all
   const days = job.parametros?.dias || (isAll ? undefined : 30)
 
-  console.log(`\n🔍 [PRÉVIA SOLICITADA] Job #${job.id.substring(0, 8)} | Modo: ${isAll ? 'Base Completa' : `Últimos ${days} dias`}`)
-
-  await supabase
-    .from('esus_sync_jobs')
-    .update({
-      status: 'PROCESSANDO',
-      started_at: new Date().toISOString(),
-      agente_identificador: AGENT_ID,
-      mensagem_status: 'Consultando quantidade no banco do e-SUS...'
-    })
-    .eq('id', job.id)
+  console.log(`\n🔍 [CALCULANDO PRÉVIA] Job #${job.id.substring(0, 8)}`)
+  console.log(`   • Solicitado por: ${job.solicitado_por || 'Operador SisFilaSUS'}`)
+  console.log(`   • Período: ${isAll ? 'Base Completa (Todos)' : `Últimos ${days} dias`}`)
 
   const pool = createEsusDbPool()
   try {
     const totalEstimado = await countCidadaosInPeriod(pool, days)
     const tempoEstimadoSegundos = Math.max(5, Math.ceil(totalEstimado / 80))
 
-    await supabase
-      .from('esus_sync_jobs')
-      .update({
-        status: 'CONCLUIDO',
-        completed_at: new Date().toISOString(),
-        total_estimado: totalEstimado,
-        tempo_estimado_segundos: tempoEstimadoSegundos,
-        mensagem_status: `Prévia calculada: ${totalEstimado.toLocaleString('pt-BR')} cidadãos identificados (~${tempoEstimadoSegundos}s estimados).`
-      })
-      .eq('id', job.id)
+    await safeUpdateJob(supabase, job.id, {
+      status: 'CONCLUIDO',
+      completed_at: new Date().toISOString(),
+      total_estimado: totalEstimado,
+      tempo_estimado_segundos: tempoEstimadoSegundos,
+      mensagem_status: `Prévia calculada: ${totalEstimado.toLocaleString('pt-BR')} cidadãos identificados (~${tempoEstimadoSegundos}s estimados).`
+    })
 
     console.log(`   ✅ Prévia concluída: ${totalEstimado.toLocaleString('pt-BR')} cidadãos (~${tempoEstimadoSegundos}s estimados)\n`)
   } catch (err) {
     console.error(`   ❌ Erro ao calcular prévia:`, err.message)
-    await supabase
-      .from('esus_sync_jobs')
-      .update({
-        status: 'ERRO',
-        completed_at: new Date().toISOString(),
-        mensagem_erro: err.message,
-        mensagem_status: 'Falha ao consultar prévia no e-SUS.'
-      })
-      .eq('id', job.id)
+    await safeUpdateJob(supabase, job.id, {
+      status: 'ERRO',
+      completed_at: new Date().toISOString(),
+      mensagem_erro: err.message,
+      mensagem_status: 'Falha ao consultar prévia no e-SUS.'
+    })
   } finally {
     await pool.end().catch(() => {})
   }
+}
+
+async function safeUpdateJob(supabase, jobId, payload) {
+  let toSend = { ...payload }
+  let res = await supabase.from('esus_sync_jobs').update(toSend).eq('id', jobId)
+  
+  if (res.error && res.error.message?.includes('total_processado')) {
+    delete toSend.total_processado
+    res = await supabase.from('esus_sync_jobs').update(toSend).eq('id', jobId)
+  }
+  
+  if (res.error) {
+    console.error(`   ⚠️ Erro ao atualizar status do job ${jobId.substring(0, 8)}:`, res.error.message)
+  }
+  return res
 }
 
 /**
@@ -172,20 +173,17 @@ async function processSyncJob(supabase, job) {
 
   const tempoEstimadoSegundos = Math.max(10, Math.ceil(totalEstimado / 80))
 
-  await supabase
-    .from('esus_sync_jobs')
-    .update({
-      status: 'PROCESSANDO',
-      started_at: new Date().toISOString(),
-      agente_identificador: AGENT_ID,
-      total_estimado: totalEstimado,
-      total_processado: 0,
-      progresso_pct: 0,
-      tempo_estimado_segundos: tempoEstimadoSegundos,
-      tempo_decorrido_segundos: 0,
-      mensagem_status: `Conectado ao e-SUS. Extraindo dados (0 de ${totalEstimado.toLocaleString('pt-BR')})...`
-    })
-    .eq('id', job.id)
+  await safeUpdateJob(supabase, job.id, {
+    status: 'PROCESSANDO',
+    started_at: new Date().toISOString(),
+    agente_identificador: AGENT_ID,
+    total_estimado: totalEstimado,
+    total_processado: 0,
+    progresso_pct: 0,
+    tempo_estimado_segundos: tempoEstimadoSegundos,
+    tempo_decorrido_segundos: 0,
+    mensagem_status: `Conectado ao e-SUS. Extraindo dados (0 de ${totalEstimado.toLocaleString('pt-BR')})...`
+  })
 
   let offset = 0
   let totalProcessados = 0
@@ -226,24 +224,21 @@ async function processSyncJob(supabase, job) {
       console.log(`   ⏳ [Lote ${batchIndex}] ${totalProcessados}/${totalEstimado} (${progressoPct}%) em ${elapsedChunk}s | SisFila: +${stats.totalPacientesSisFilaEncontrados} | +${stats.totalTelefonesAdicionados} tels`)
 
       // Atualizar progresso em tempo real no Supabase (alimenta a barra de progresso da web)
-      await supabase
-        .from('esus_sync_jobs')
-        .update({
-          total_processado: totalProcessados,
-          progresso_pct: progressoPct,
-          tempo_decorrido_segundos: tempoDecorridoSec,
-          mensagem_status: `Processando lote ${batchIndex}... (${totalProcessados.toLocaleString('pt-BR')} de ${totalEstimado.toLocaleString('pt-BR')} cidadãos | ${totalPacientesEnriquecidos} pacientes enriquecidos)`,
-          stats: {
-            totalLidos: totalProcessados,
-            totalSalvosEsus: totalSalvosEsus,
-            totalPacientesEnriquecidos: totalPacientesEnriquecidos,
-            totalTelefonesAdicionados: totalTelefonesAdicionados,
-            totalEnderecosAtualizados: totalEnderecosAtualizados,
-            totalUnidadesVinculadas: totalUnidadesVinculadas,
-            tempoDecorrido: tempoDecorridoSec + 's'
-          }
-        })
-        .eq('id', job.id)
+      await safeUpdateJob(supabase, job.id, {
+        total_processado: totalProcessados,
+        progresso_pct: progressoPct,
+        tempo_decorrido_segundos: tempoDecorridoSec,
+        mensagem_status: `Processando lote ${batchIndex}... (${totalProcessados.toLocaleString('pt-BR')} de ${totalEstimado.toLocaleString('pt-BR')} cidadãos | ${totalPacientesEnriquecidos} pacientes enriquecidos)`,
+        stats: {
+          totalLidos: totalProcessados,
+          totalSalvosEsus: totalSalvosEsus,
+          totalPacientesEnriquecidos: totalPacientesEnriquecidos,
+          totalTelefonesAdicionados: totalTelefonesAdicionados,
+          totalEnderecosAtualizados: totalEnderecosAtualizados,
+          totalUnidadesVinculadas: totalUnidadesVinculadas,
+          tempoDecorrido: tempoDecorridoSec + 's'
+        }
+      })
 
       offset += cidadaosChunk.length
       batchIndex++
@@ -256,40 +251,34 @@ async function processSyncJob(supabase, job) {
     const totalTimeSec = Math.round((Date.now() - startTime) / 1000)
 
     // Finalizar com 100% de progresso
-    await supabase
-      .from('esus_sync_jobs')
-      .update({
-        status: 'CONCLUIDO',
-        completed_at: new Date().toISOString(),
-        total_processado: totalProcessados,
-        progresso_pct: 100,
-        tempo_decorrido_segundos: totalTimeSec,
-        mensagem_status: `Sincronização concluída com sucesso em ${totalTimeSec}s!`,
-        stats: {
-          totalLidos: totalProcessados,
-          totalSalvosEsus: totalSalvosEsus,
-          totalPacientesEnriquecidos: totalPacientesEnriquecidos,
-          totalTelefonesAdicionados: totalTelefonesAdicionados,
-          totalEnderecosAtualizados: totalEnderecosAtualizados,
-          totalUnidadesVinculadas: totalUnidadesVinculadas,
-          tempoDecorrido: totalTimeSec + 's'
-        }
-      })
-      .eq('id', job.id)
+    await safeUpdateJob(supabase, job.id, {
+      status: 'CONCLUIDO',
+      completed_at: new Date().toISOString(),
+      total_processado: totalProcessados,
+      progresso_pct: 100,
+      tempo_decorrido_segundos: totalTimeSec,
+      mensagem_status: `Sincronização concluída com sucesso em ${totalTimeSec}s!`,
+      stats: {
+        totalLidos: totalProcessados,
+        totalSalvosEsus: totalSalvosEsus,
+        totalPacientesEnriquecidos: totalPacientesEnriquecidos,
+        totalTelefonesAdicionados: totalTelefonesAdicionados,
+        totalEnderecosAtualizados: totalEnderecosAtualizados,
+        totalUnidadesVinculadas: totalUnidadesVinculadas,
+        tempoDecorrido: totalTimeSec + 's'
+      }
+    })
 
     console.log(`🎉 [CONCLUÍDO COM SUCESSO] #${job.id.substring(0, 8)} em ${totalTimeSec}s!`)
     console.log(`   • ${totalProcessados} lidos | ${totalPacientesEnriquecidos} enriquecidos | +${totalTelefonesAdicionados} novos telefones\n`)
   } catch (err) {
     console.error(`❌ [FALHA NO PROCESSAMENTO]:`, err.message)
-    await supabase
-      .from('esus_sync_jobs')
-      .update({
-        status: 'ERRO',
-        completed_at: new Date().toISOString(),
-        mensagem_erro: err.message || 'Falha durante o processamento do lote.',
-        mensagem_status: 'Falha durante a sincronização.'
-      })
-      .eq('id', job.id)
+    await safeUpdateJob(supabase, job.id, {
+      status: 'ERRO',
+      completed_at: new Date().toISOString(),
+      mensagem_erro: err.message || 'Falha durante o processamento do lote.',
+      mensagem_status: 'Falha durante a sincronização.'
+    })
   } finally {
     await pool.end().catch(() => {})
   }

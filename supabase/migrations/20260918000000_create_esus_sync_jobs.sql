@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.esus_sync_jobs (
 -- 1.1. Garantir que todas as colunas existem caso a tabela já tenha sido criada anteriormente
 ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) DEFAULT 'SINCRONIZACAO' NOT NULL;
 ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS total_estimado INT DEFAULT 0;
+ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS total_processado INT DEFAULT 0;
 ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS progresso_pct INT DEFAULT 0;
 ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tempo_estimado_segundos INT DEFAULT 0;
 ALTER TABLE public.esus_sync_jobs ADD COLUMN IF NOT EXISTS tempo_decorrido_segundos INT DEFAULT 0;
