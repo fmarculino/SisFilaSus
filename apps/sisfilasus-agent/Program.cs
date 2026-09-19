@@ -15,7 +15,7 @@ namespace SisFilaSusAgent
 {
     public class Config
     {
-        public const string Version = "1.3.1";
+        public const string Version = "1.3.2";
         public string EsusHost = "10.110.2.8";
         public int EsusPort = 5433;
         public string EsusDb = "esus";
@@ -159,7 +159,7 @@ namespace SisFilaSusAgent
             txtPass = new TextBox() { Text = cfg.EsusPassword, Top = 112, Left = 90, Width = 345, PasswordChar = '•' };
             grpEsus.Controls.Add(txtPass);
 
-            btnTest = new Button() { Text = "🔌 Testar Conexão Local", Top = 145, Left = 90, Width = 180, Height = 28 };
+            btnTest = new Button() { Text = "Testar Conexão Local", Top = 145, Left = 90, Width = 180, Height = 28 };
             btnTest.Click += (s, e) => TestConnection();
             grpEsus.Controls.Add(btnTest);
 
@@ -185,7 +185,7 @@ namespace SisFilaSusAgent
             top += 145;
 
             // Botões
-            btnSave = new Button() { Text = "💾 Salvar Configurações", Top = top, Left = 190, Width = 180, Height = 32 };
+            btnSave = new Button() { Text = "Salvar Configurações", Top = top, Left = 190, Width = 180, Height = 32 };
             btnSave.Click += (s, e) => {
                 cfg.EsusHost = txtHost.Text.Trim();
                 int port;
@@ -239,8 +239,9 @@ namespace SisFilaSusAgent
 
         public TrayAppContext()
         {
-            // Forçar protocolos seguros TLS 1.2 no .NET Framework
+            // Forçar protocolos seguros TLS 1.2 no .NET Framework e ignorar erros de validação de certificados legados no Windows 7
             ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
 
             // Limpar arquivo .antigo de auto-atualização anterior se houver
             LimparVersaoAntiga();
@@ -256,27 +257,27 @@ namespace SisFilaSusAgent
             mnuStatus = new ToolStripMenuItem("Status: Conectando à nuvem...") { Enabled = false };
             menu.Items.Add(mnuStatus);
 
-            var mnuConfig = new ToolStripMenuItem("⚙️ Configurar Credenciais e-SUS...", null, (s, e) => {
+            var mnuConfig = new ToolStripMenuItem("Configurar Credenciais e-SUS...", null, (s, e) => {
                 new ConfigForm(config).ShowDialog();
             });
             menu.Items.Add(mnuConfig);
 
-            var mnuCheckNow = new ToolStripMenuItem("⚡ Checar Fila do SisFilaSUS Agora", null, (s, e) => {
+            var mnuCheckNow = new ToolStripMenuItem("Checar Fila do SisFilaSUS Agora", null, (s, e) => {
                 SendHeartbeatOnce();
             });
             menu.Items.Add(mnuCheckNow);
 
-            mnuVersion = new ToolStripMenuItem("🔄 Verificar Atualização...", null, (s, e) => {
+            mnuVersion = new ToolStripMenuItem("Verificar Atualização...", null, (s, e) => {
                 CheckAndApplyUpdate(manual: true);
             });
             menu.Items.Add(mnuVersion);
 
-            var mnuAutoStart = new ToolStripMenuItem("🚀 Iniciar junto com o Windows", null, ToggleAutoStart);
+            var mnuAutoStart = new ToolStripMenuItem("Iniciar junto com o Windows", null, ToggleAutoStart);
             mnuAutoStart.Checked = IsAutoStartEnabled();
             menu.Items.Add(mnuAutoStart);
 
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(new ToolStripMenuItem("❌ Encerrar Agente", null, (s, e) => {
+            menu.Items.Add(new ToolStripMenuItem("Encerrar Agente", null, (s, e) => {
                 EncerrarTudo();
             }));
 
@@ -650,6 +651,10 @@ namespace SisFilaSusAgent
         [STAThread]
         static void Main()
         {
+            // Forçar TLS 1.2 e ignorar erros de cadeia de certificados SSL/TLS no Windows 7 / servidores legados
+            ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
             // Garantir instância única do agente na bandeja
             bool createdNew;
             using (var mutex = new Mutex(true, "SisFilaSusAgent_SingleInstance_Mutex", out createdNew))
