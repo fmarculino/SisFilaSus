@@ -15,13 +15,13 @@ namespace SisFilaSusAgent
 {
     public class Config
     {
-        public const string Version = "1.3.0";
+        public const string Version = "1.3.1";
         public string EsusHost = "10.110.2.8";
         public int EsusPort = 5433;
         public string EsusDb = "esus";
         public string EsusUser = "esus_leitura";
         public string EsusPassword = "";
-        public string SisFilaSusUrl = "https://fila.maraba.pa.gov.br";
+        public string SisFilaSusUrl = "https://sisfilasus.vps.atb.app.br";
         public string SupabaseUrl = "https://supabase-sisfilasus.coolify.vps.atb.app.br";
         public string SupabaseServiceKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc4MDY5NjMyMCwiZXhwIjo0OTM2MzY5OTIwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.mx_pcM74ValOQKHGAyoAhskcFTg3Qp6MxKIlMSXI61k";
         public string AgentId = "SMS-AGENT-" + Environment.MachineName;
@@ -80,7 +80,13 @@ namespace SisFilaSusAgent
                     else if (key == "ESUS_DB") cfg.EsusDb = val;
                     else if (key == "ESUS_USER") cfg.EsusUser = val;
                     else if (key == "ESUS_PASS_ENC") cfg.EsusPassword = SecurityHelper.Decrypt(val);
-                    else if (key == "SISFILASUS_URL") cfg.SisFilaSusUrl = val;
+                    else if (key == "SISFILASUS_URL")
+                    {
+                        if (string.IsNullOrEmpty(val) || val.Contains("fila.maraba.pa.gov.br"))
+                            cfg.SisFilaSusUrl = "https://sisfilasus.vps.atb.app.br";
+                        else
+                            cfg.SisFilaSusUrl = val;
+                    }
                     else if (key == "SUPABASE_URL") cfg.SupabaseUrl = val;
                     else if (key == "SUPABASE_KEY") cfg.SupabaseServiceKey = val;
                     else if (key == "AGENT_ID") cfg.AgentId = val;
@@ -380,7 +386,11 @@ namespace SisFilaSusAgent
                 {
                     try
                     {
-                        string appHeartbeatUrl = config.SisFilaSusUrl.TrimEnd('/') + "/api/esus-agent/heartbeat";
+                        string appUrl = config.SisFilaSusUrl;
+                        if (string.IsNullOrEmpty(appUrl) || appUrl.Contains("fila.maraba.pa.gov.br"))
+                            appUrl = "https://sisfilasus.vps.atb.app.br";
+
+                        string appHeartbeatUrl = appUrl.TrimEnd('/') + "/api/esus-agent/heartbeat";
                         string json = string.Format(
                             "{{\"identificador\":\"{0}\",\"versao\":\"{1}\",\"status\":\"ONLINE\",\"metadados\":{{\"hostname\":\"{2}\",\"esus_host\":\"{3}\"}}}}",
                             config.AgentId, Config.Version, Environment.MachineName, config.EsusHost
@@ -419,7 +429,8 @@ namespace SisFilaSusAgent
                 try
                 {
                     string baseUrl = config.SisFilaSusUrl;
-                    if (string.IsNullOrEmpty(baseUrl)) baseUrl = "https://fila.maraba.pa.gov.br";
+                    if (string.IsNullOrEmpty(baseUrl) || baseUrl.Contains("fila.maraba.pa.gov.br"))
+                        baseUrl = "https://sisfilasus.vps.atb.app.br";
 
                     string versionUrl = baseUrl.TrimEnd('/') + "/api/esus-agent/tray-version";
                     string json;
