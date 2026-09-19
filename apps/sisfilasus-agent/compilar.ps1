@@ -36,6 +36,9 @@ Copy-Item "$outputExe" "$distExe" -Force
 if (Test-Path (Join-Path $baseDir "Npgsql.dll")) {
     Copy-Item (Join-Path $baseDir "Npgsql.dll") (Join-Path $baseDir "dist\Npgsql.dll") -Force
 }
+if (Test-Path (Join-Path $baseDir "Mono.Security.dll")) {
+    Copy-Item (Join-Path $baseDir "Mono.Security.dll") (Join-Path $baseDir "dist\Mono.Security.dll") -Force
+}
 
 # Calcular SHA-256
 $hash = (Get-FileHash -Path "$distExe" -Algorithm SHA256).Hash.ToLower()
@@ -53,6 +56,9 @@ if (Test-Path (Split-Path -Parent $zipPath)) {
     Copy-Item "$outputExe" "$tempZipDir\SisFilaSusAgent.exe"
     if (Test-Path (Join-Path $baseDir "Npgsql.dll")) {
         Copy-Item (Join-Path $baseDir "Npgsql.dll") "$tempZipDir\Npgsql.dll"
+    }
+    if (Test-Path (Join-Path $baseDir "Mono.Security.dll")) {
+        Copy-Item (Join-Path $baseDir "Mono.Security.dll") "$tempZipDir\Mono.Security.dll"
     }
     Copy-Item (Join-Path $baseDir "README-INSTALACAO.txt") "$tempZipDir\README-INSTALACAO.txt"
     [System.IO.Compression.ZipFile]::CreateFromDirectory($tempZipDir, $zipPath)
