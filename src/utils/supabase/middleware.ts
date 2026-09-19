@@ -95,7 +95,9 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Redirecionamento de usuários logados tentando acessar login/forgot-password para o dashboard
-    if (user && isPublicRoute && request.nextUrl.pathname !== '/portal-cidadao') {
+    const authOnlyPages = ['/login', '/forgot-password']
+    const isAuthOnlyPage = authOnlyPages.some(route => request.nextUrl.pathname.startsWith(route))
+    if (user && isAuthOnlyPage) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
