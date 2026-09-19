@@ -25,7 +25,7 @@ $distExe = Join-Path $baseDir "dist\SisFilaSusAgent.exe"
 $sourceFile = Join-Path $baseDir "Program.cs"
 
 # Compilar
-& $cscPath /target:winexe /optimize+ /platform:anycpu /out:"$outputExe" "$sourceFile" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Security.dll
+& $cscPath /target:winexe /optimize+ /platform:anycpu /out:"$outputExe" "$sourceFile" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Security.dll /r:Npgsql.dll
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Falha na compilação do C#."
@@ -33,6 +33,9 @@ if ($LASTEXITCODE -ne 0) {
 
 # Copiar para dist
 Copy-Item "$outputExe" "$distExe" -Force
+if (Test-Path (Join-Path $baseDir "Npgsql.dll")) {
+    Copy-Item (Join-Path $baseDir "Npgsql.dll") (Join-Path $baseDir "dist\Npgsql.dll") -Force
+}
 
 # Calcular SHA-256
 $hash = (Get-FileHash -Path "$distExe" -Algorithm SHA256).Hash.ToLower()
@@ -48,6 +51,9 @@ if (Test-Path (Split-Path -Parent $zipPath)) {
     $tempZipDir = Join-Path ([System.IO.Path]::GetTempPath()) ("sisfilasus_agent_pkg_" + [System.Guid]::NewGuid().ToString().Substring(0,8))
     New-Item -ItemType Directory -Path $tempZipDir | Out-Null
     Copy-Item "$outputExe" "$tempZipDir\SisFilaSusAgent.exe"
+    if (Test-Path (Join-Path $baseDir "Npgsql.dll")) {
+        Copy-Item (Join-Path $baseDir "Npgsql.dll") "$tempZipDir\Npgsql.dll"
+    }
     Copy-Item (Join-Path $baseDir "README-INSTALACAO.txt") "$tempZipDir\README-INSTALACAO.txt"
     [System.IO.Compression.ZipFile]::CreateFromDirectory($tempZipDir, $zipPath)
     Remove-Item $tempZipDir -Recurse -Force

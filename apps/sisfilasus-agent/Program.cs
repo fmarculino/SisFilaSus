@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -10,13 +11,14 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Npgsql;
 
 namespace SisFilaSusAgent
 {
     public class Config
     {
-        public const string Version = "1.3.2";
-        public string EsusHost = "10.110.2.8";
+        public const string Version = "1.4.0";
+        public string EsusHost = "127.0.0.1";
         public int EsusPort = 5433;
         public string EsusDb = "esus";
         public string EsusUser = "esus_leitura";
@@ -210,17 +212,24 @@ namespace SisFilaSusAgent
         {
             try
             {
-                using (var client = new System.Net.Sockets.TcpClient())
+                int port;
+                int.TryParse(txtPort.Text.Trim(), out port);
+                string connStr = string.Format("Server={0};Port={1};Database={2};User Id={3};Password={4};Timeout=8;",
+                    txtHost.Text.Trim(), port, txtDb.Text.Trim(), txtUser.Text.Trim(), txtPass.Text);
+                using (var conn = new NpgsqlConnection(connStr))
                 {
-                    int port;
-                    int.TryParse(txtPort.Text.Trim(), out port);
-                    client.Connect(txtHost.Text.Trim(), port);
-                    MessageBox.Show("Porta " + port + " conectada com sucesso no host local (" + txtHost.Text.Trim() + ")!", "Teste de Conexão", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    conn.Open();
+                    using (var cmd = new NpgsqlCommand("SELECT count(*) FROM tb_cidadao WHERE st_ativo = 1;", conn))
+                    {
+                        object res = cmd.ExecuteScalar();
+                        long count = res != null ? Convert.ToInt64(res) : 0;
+                        MessageBox.Show("Conexão ao banco e-SUS estabelecida com sucesso!\n\nCidadãos ativos cadastrados: " + count.ToString("N0"), "Teste de Conexão", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Falha na conexão local: " + ex.Message, "Teste de Conexão", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Falha na conexão com o banco e-SUS:\n\n" + ex.Message, "Teste de Conexão", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -291,9 +300,9 @@ namespace SisFilaSusAgent
 
             trayIcon.ShowBalloonTip(3000, "SisFilaSUS Agente v" + Config.Version, "Agente ativo e comunicando com o SisFilaSUS.", ToolTipIcon.Info);
 
-            // Timer de Heartbeat (a cada 15 segundos)
+            // Timer de Heartbeat e atendimento de fila (a cada 5 segundos)
             pollTimer = new System.Windows.Forms.Timer();
-            pollTimer.Interval = 15000;
+            pollTimer.Interval = 5000;
             pollTimer.Tick += (s, e) => SendHeartbeatOnce();
             pollTimer.Start();
 
@@ -347,6 +356,8 @@ namespace SisFilaSusAgent
             }
         }
 
+        private bool isExecutingJob = false;
+
         private void SendHeartbeatOnce()
         {
             ThreadPool.QueueUserWorkItem(state =>
@@ -354,26 +365,35 @@ namespace SisFilaSusAgent
                 bool success = false;
                 string errMsg = "Erro de conexão";
 
-                // 1. Tentar Heartbeat via Supabase REST diretamente
                 try
                 {
-                    if (!string.IsNullOrEmpty(config.SupabaseUrl) && !string.IsNullOrEmpty(config.SupabaseServiceKey))
-                    {
-                        string supaUrl = config.SupabaseUrl.TrimEnd('/') + "/rest/v1/esus_agentes";
-                        string nowIso = DateTime.UtcNow.ToString("o");
-                        string json = string.Format(
-                            "{{\"identificador\":\"{0}\",\"versao\":\"{1}\",\"status\":\"ONLINE\",\"ultimo_heartbeat\":\"{2}\",\"metadados\":{{\"hostname\":\"{3}\",\"platform\":\"win32\",\"esus_host\":\"{4}\"}},\"updated_at\":\"{2}\"}}",
-                            config.AgentId, Config.Version, nowIso, Environment.MachineName, config.EsusHost
-                        );
+                    string appUrl = config.SisFilaSusUrl;
+                    if (string.IsNullOrEmpty(appUrl) || appUrl.Contains("fila.maraba.pa.gov.br"))
+                        appUrl = "https://sisfilasus.vps.atb.app.br";
 
-                        using (var wc = new WebClient())
+                    string appHeartbeatUrl = appUrl.TrimEnd('/') + "/api/esus-agent/heartbeat";
+                    string json = string.Format(
+                        "{{\"identificador\":\"{0}\",\"versao\":\"{1}\",\"status\":\"ONLINE\",\"metadados\":{{\"hostname\":\"{2}\",\"esus_host\":\"{3}\"}}}}",
+                        config.AgentId, Config.Version, Environment.MachineName, config.EsusHost
+                    );
+
+                    using (var wc = new WebClient())
+                    {
+                        wc.Headers[HttpRequestHeader.ContentType] = "application/json";
+                        string res = wc.UploadString(appHeartbeatUrl, "POST", json);
+                        if (res.Contains("\"success\":true") || res.Contains("\"online\":true"))
                         {
-                            wc.Headers[HttpRequestHeader.ContentType] = "application/json";
-                            wc.Headers["apikey"] = config.SupabaseServiceKey;
-                            wc.Headers["Authorization"] = "Bearer " + config.SupabaseServiceKey;
-                            wc.Headers["Prefer"] = "resolution=merge-duplicates";
-                            wc.UploadString(supaUrl, "POST", json);
                             success = true;
+                        }
+
+                        if (res.Contains("\"has_pending_job\":true") && !isExecutingJob)
+                        {
+                            string pJobId = ExtractJsonField(res, "id");
+                            string pJobTipo = ExtractJsonField(res, "tipo");
+                            string diasStr = ExtractJsonField(res, "dias");
+                            int pDias = 0;
+                            int.TryParse(diasStr, out pDias);
+                            ProcessPendingJob(pJobId, pJobTipo, pDias);
                         }
                     }
                 }
@@ -382,38 +402,231 @@ namespace SisFilaSusAgent
                     errMsg = ex.Message;
                 }
 
-                // 2. Tentar Heartbeat via SisFilaSUS App API
-                if (!success && !string.IsNullOrEmpty(config.SisFilaSusUrl))
+                UpdateStatus(success, success ? "Conectado" : "Sem conexão com a nuvem");
+            });
+        }
+
+        private static string EscapeJson(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return "";
+            return str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+        }
+
+        private void ProcessPendingJob(string jobId, string jobTipo, int dias)
+        {
+            if (isExecutingJob || string.IsNullOrEmpty(jobId)) return;
+            isExecutingJob = true;
+
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                string appUrl = config.SisFilaSusUrl;
+                if (string.IsNullOrEmpty(appUrl) || appUrl.Contains("fila.maraba.pa.gov.br"))
+                    appUrl = "https://sisfilasus.vps.atb.app.br";
+
+                try
                 {
-                    try
+                    trayIcon.ShowBalloonTip(3000, "SisFilaSUS", "Processando pedido de " + jobTipo + " no e-SUS...", ToolTipIcon.Info);
+
+                    string connStr = string.Format("Server={0};Port={1};Database={2};User Id={3};Password={4};Timeout=30;",
+                        config.EsusHost, config.EsusPort, config.EsusDb, config.EsusUser, config.EsusPassword);
+
+                    if (jobTipo == "PREVIA")
                     {
-                        string appUrl = config.SisFilaSusUrl;
-                        if (string.IsNullOrEmpty(appUrl) || appUrl.Contains("fila.maraba.pa.gov.br"))
-                            appUrl = "https://sisfilasus.vps.atb.app.br";
+                        long total = 0;
+                        using (var conn = new NpgsqlConnection(connStr))
+                        {
+                            conn.Open();
+                            string sql = "SELECT count(*) FROM tb_cidadao c WHERE c.st_ativo = 1 AND (c.nu_cpf IS NOT NULL OR c.nu_cns IS NOT NULL)";
+                            if (dias > 0)
+                            {
+                                sql += " AND (c.dt_atualizado >= NOW() - INTERVAL '" + dias + " days')";
+                            }
+                            using (var cmd = new NpgsqlCommand(sql, conn))
+                            {
+                                object r = cmd.ExecuteScalar();
+                                total = r != null ? Convert.ToInt64(r) : 0;
+                            }
+                        }
 
-                        string appHeartbeatUrl = appUrl.TrimEnd('/') + "/api/esus-agent/heartbeat";
-                        string json = string.Format(
-                            "{{\"identificador\":\"{0}\",\"versao\":\"{1}\",\"status\":\"ONLINE\",\"metadados\":{{\"hostname\":\"{2}\",\"esus_host\":\"{3}\"}}}}",
-                            config.AgentId, Config.Version, Environment.MachineName, config.EsusHost
-                        );
-
+                        string previaUrl = appUrl.TrimEnd('/') + "/api/esus-agent/previa-result";
+                        string jsonPayload = string.Format("{{\"job_id\":\"{0}\",\"total_estimado\":{1}}}", jobId, total);
                         using (var wc = new WebClient())
                         {
                             wc.Headers[HttpRequestHeader.ContentType] = "application/json";
-                            string res = wc.UploadString(appHeartbeatUrl, "POST", json);
-                            if (res.Contains("\"success\":true") || res.Contains("\"online\":true"))
+                            wc.UploadString(previaUrl, "POST", jsonPayload);
+                        }
+
+                        trayIcon.ShowBalloonTip(3000, "SisFilaSUS", "Prévia calculada com sucesso: " + total.ToString("N0") + " cidadãos!", ToolTipIcon.Info);
+                    }
+                    else // SINCRONIZACAO
+                    {
+                        var stopwatch = Stopwatch.StartNew();
+                        long totalEstimado = 0;
+
+                        using (var conn = new NpgsqlConnection(connStr))
+                        {
+                            conn.Open();
+
+                            string countSql = "SELECT count(*) FROM tb_cidadao c WHERE c.st_ativo = 1 AND (c.nu_cpf IS NOT NULL OR c.nu_cns IS NOT NULL)";
+                            if (dias > 0)
                             {
-                                success = true;
+                                countSql += " AND (c.dt_atualizado >= NOW() - INTERVAL '" + dias + " days')";
+                            }
+                            using (var cmd = new NpgsqlCommand(countSql, conn))
+                            {
+                                object r = cmd.ExecuteScalar();
+                                totalEstimado = r != null ? Convert.ToInt64(r) : 0;
+                            }
+
+                            int batchSize = 100;
+                            int offset = 0;
+                            int batchIndex = 1;
+                            int totalProcessados = 0;
+                            string syncBatchUrl = appUrl.TrimEnd('/') + "/api/esus-agent/sync-batch";
+
+                            while (true)
+                            {
+                                string query = @"
+                                    SELECT 
+                                      c.no_cidadao,
+                                      c.nu_cpf,
+                                      c.nu_cns,
+                                      c.dt_nascimento,
+                                      c.no_sexo,
+                                      c.nu_micro_area,
+                                      c.ds_logradouro,
+                                      c.nu_numero,
+                                      c.st_sem_numero,
+                                      c.ds_complemento,
+                                      c.no_bairro,
+                                      c.ds_cep,
+                                      c.nu_telefone_celular,
+                                      c.nu_telefone_contato,
+                                      c.nu_telefone_residencial,
+                                      c.dt_atualizado,
+                                      u.nu_cnes,
+                                      u.no_unidade_saude,
+                                      e.nu_ine,
+                                      e.no_equipe
+                                    FROM tb_cidadao c
+                                    LEFT JOIN tb_fat_cidadao_pec f ON f.co_cidadao = c.co_seq_cidadao
+                                    LEFT JOIN tb_dim_unidade_saude u ON u.co_seq_dim_unidade_saude = f.co_dim_unidade_saude_vinc
+                                    LEFT JOIN tb_dim_equipe e ON e.co_seq_dim_equipe = f.co_dim_equipe_vinc
+                                    WHERE c.st_ativo = 1 AND (c.nu_cpf IS NOT NULL OR c.nu_cns IS NOT NULL)";
+
+                                if (dias > 0)
+                                {
+                                    query += " AND (c.dt_atualizado >= NOW() - INTERVAL '" + dias + " days')";
+                                }
+
+                                query += string.Format(" ORDER BY c.dt_atualizado DESC NULLS LAST LIMIT {0} OFFSET {1}", batchSize, offset);
+
+                                var cidadaosList = new List<string>();
+
+                                using (var cmd = new NpgsqlCommand(query, conn))
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    while (reader.Read())
+                                    {
+                                        string nome = EscapeJson(reader["no_cidadao"] != DBNull.Value ? reader["no_cidadao"].ToString() : "");
+                                        string cpf = reader["nu_cpf"] != DBNull.Value ? Regex.Replace(reader["nu_cpf"].ToString(), @"\D", "") : "";
+                                        string cns = reader["nu_cns"] != DBNull.Value ? Regex.Replace(reader["nu_cns"].ToString(), @"\D", "") : "";
+                                        string dtNasc = reader["dt_nascimento"] != DBNull.Value ? Convert.ToDateTime(reader["dt_nascimento"]).ToString("yyyy-MM-dd") : "";
+                                        string sexo = EscapeJson(reader["no_sexo"] != DBNull.Value ? reader["no_sexo"].ToString() : "");
+                                        string microarea = EscapeJson(reader["nu_micro_area"] != DBNull.Value ? reader["nu_micro_area"].ToString() : "");
+                                        
+                                        string logr = reader["ds_logradouro"] != DBNull.Value ? reader["ds_logradouro"].ToString() : "";
+                                        string num = reader["nu_numero"] != DBNull.Value ? reader["nu_numero"].ToString() : "";
+                                        string bairro = reader["no_bairro"] != DBNull.Value ? reader["no_bairro"].ToString() : "";
+                                        string cep = reader["ds_cep"] != DBNull.Value ? reader["ds_cep"].ToString() : "";
+                                        string endereco = EscapeJson(string.Format("{0}, {1} - {2} (CEP: {3})", logr, num, bairro, cep).Trim().Trim(',', '-'));
+
+                                        string telCel = reader["nu_telefone_celular"] != DBNull.Value ? reader["nu_telefone_celular"].ToString() : "";
+                                        string telCont = reader["nu_telefone_contato"] != DBNull.Value ? reader["nu_telefone_contato"].ToString() : "";
+                                        string telRes = reader["nu_telefone_residencial"] != DBNull.Value ? reader["nu_telefone_residencial"].ToString() : "";
+
+                                        var tels = new List<string>();
+                                        if (!string.IsNullOrEmpty(telCel)) tels.Add(string.Format("{{\"numero\":\"{0}\",\"tipo\":\"CELULAR_WHATSAPP\"}}", EscapeJson(telCel)));
+                                        if (!string.IsNullOrEmpty(telCont) && telCont != telCel) tels.Add(string.Format("{{\"numero\":\"{0}\",\"tipo\":\"RECADO\"}}", EscapeJson(telCont)));
+                                        if (!string.IsNullOrEmpty(telRes) && telRes != telCel && telRes != telCont) tels.Add(string.Format("{{\"numero\":\"{0}\",\"tipo\":\"FIXO\"}}", EscapeJson(telRes)));
+
+                                        string dtAtualiz = reader["dt_atualizado"] != DBNull.Value ? Convert.ToDateTime(reader["dt_atualizado"]).ToString("yyyy-MM-dd") : "";
+                                        string cnes = EscapeJson(reader["nu_cnes"] != DBNull.Value ? reader["nu_cnes"].ToString() : "");
+                                        string unidade = EscapeJson(reader["no_unidade_saude"] != DBNull.Value ? reader["no_unidade_saude"].ToString() : "");
+                                        string ine = EscapeJson(reader["nu_ine"] != DBNull.Value ? reader["nu_ine"].ToString() : "");
+                                        string equipe = EscapeJson(reader["no_equipe"] != DBNull.Value ? reader["no_equipe"].ToString() : "");
+
+                                        string cidJson = string.Format(
+                                            "{{\"cpf\":{0},\"cns\":{1},\"nome\":\"{2}\",\"dataNascimento\":{3},\"sexo\":{4},\"endereco\":{5},\"equipeNome\":{6},\"equipeIne\":{7},\"microarea\":{8},\"telefones\":[{9}],\"dataAtualizacaoEsus\":{10},\"unidadeCnes\":{11},\"unidadeNome\":{12}}}",
+                                            string.IsNullOrEmpty(cpf) ? "null" : "\"" + cpf + "\"",
+                                            string.IsNullOrEmpty(cns) ? "null" : "\"" + cns + "\"",
+                                            nome,
+                                            string.IsNullOrEmpty(dtNasc) ? "null" : "\"" + dtNasc + "\"",
+                                            string.IsNullOrEmpty(sexo) ? "null" : "\"" + sexo + "\"",
+                                            string.IsNullOrEmpty(endereco) ? "null" : "\"" + endereco + "\"",
+                                            string.IsNullOrEmpty(equipe) ? "null" : "\"" + equipe + "\"",
+                                            string.IsNullOrEmpty(ine) ? "null" : "\"" + ine + "\"",
+                                            string.IsNullOrEmpty(microarea) ? "null" : "\"" + microarea + "\"",
+                                            string.Join(",", tels.ToArray()),
+                                            string.IsNullOrEmpty(dtAtualiz) ? "null" : "\"" + dtAtualiz + "\"",
+                                            string.IsNullOrEmpty(cnes) ? "null" : "\"" + cnes + "\"",
+                                            string.IsNullOrEmpty(unidade) ? "null" : "\"" + unidade + "\""
+                                        );
+                                        cidadaosList.Add(cidJson);
+                                    }
+                                }
+
+                                if (cidadaosList.Count == 0 && offset > 0)
+                                {
+                                    break;
+                                }
+
+                                totalProcessados += cidadaosList.Count;
+                                bool isLast = cidadaosList.Count < batchSize || (totalEstimado > 0 && totalProcessados >= totalEstimado);
+                                int elapsed = (int)(stopwatch.ElapsedMilliseconds / 1000);
+
+                                string batchPayload = string.Format(
+                                    "{{\"job_id\":\"{0}\",\"batch_index\":{1},\"is_last_batch\":{2},\"total_estimado\":{3},\"total_processados\":{4},\"tempo_decorrido_segundos\":{5},\"cidadaos\":[{6}]}}",
+                                    jobId, batchIndex, isLast ? "true" : "false", totalEstimado, totalProcessados, elapsed, string.Join(",", cidadaosList.ToArray())
+                                );
+
+                                using (var wc = new WebClient())
+                                {
+                                    wc.Headers[HttpRequestHeader.ContentType] = "application/json";
+                                    wc.UploadString(syncBatchUrl, "POST", batchPayload);
+                                }
+
+                                if (isLast || cidadaosList.Count == 0) break;
+
+                                offset += batchSize;
+                                batchIndex++;
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        errMsg = ex.Message;
+
+                        stopwatch.Stop();
+                        trayIcon.ShowBalloonTip(4000, "SisFilaSUS", "Sincronização concluída com sucesso!", ToolTipIcon.Info);
                     }
                 }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        string errUrl = appUrl.TrimEnd('/') + "/api/esus-agent/job-error";
+                        string errPayload = string.Format("{{\"job_id\":\"{0}\",\"mensagem_erro\":\"{1}\"}}", jobId, EscapeJson(ex.Message));
+                        using (var wc = new WebClient())
+                        {
+                            wc.Headers[HttpRequestHeader.ContentType] = "application/json";
+                            wc.UploadString(errUrl, "POST", errPayload);
+                        }
+                    }
+                    catch { }
 
-                UpdateStatus(success, success ? "Conectado" : "Sem conexão com a nuvem");
+                    trayIcon.ShowBalloonTip(4000, "SisFilaSUS", "Erro na sincronização: " + ex.Message, ToolTipIcon.Error);
+                }
+                finally
+                {
+                    isExecutingJob = false;
+                }
             });
         }
 
