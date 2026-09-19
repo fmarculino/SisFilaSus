@@ -11,7 +11,7 @@ import { processEsusCidadaosBatch } from '../src/lib/esus-importer.ts'
 const POLL_INTERVAL_MS = 3000 // Checa pedidos a cada 3 segundos
 const HEARTBEAT_INTERVAL_MS = 15000 // Heartbeat a cada 15 segundos
 const AGENT_ID = `SMS-AGENT-${os.hostname()}`
-const AGENT_VERSION = '1.2.0'
+const AGENT_VERSION = '1.3.0'
 
 async function runAgent() {
   console.log('===============================================================')

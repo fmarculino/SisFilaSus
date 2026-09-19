@@ -4,6 +4,25 @@ Todas as alterações notáveis, novas funcionalidades e correções deste proje
 
 ---
 
+## [0.11.0] — 2026-09-18
+### Adicionado & Corrigido
+* **Comunicador e-SUS PEC (v1.3.0) com Heartbeat Ativo e Sinal de Vida Real**:
+  * Correção do status do comunicador na bandeja do Windows (`SisFilaSusAgent.exe`), eliminando o texto estático e substituindo por checagem dinâmica a cada 15 segundos.
+  * O menu e a tooltip da bandeja agora refletem a realidade operacional em tempo real: `● Status: Conectado e Aguardando (v1.3.0)` quando online e `○ Status: Sem conexão com a nuvem` em falhas.
+  * O painel web (`Atualização e-SUS`) exibe badge pulsante com o identificador do agente e a versão conectada (`v1.3.0`).
+* **Auto-Atualização Transparente (Padrão SisEscala)**:
+  * Implementação de rotina de auto-atualização sem intervenção manual idêntica ao `coletor-rep` do SisEscala.
+  * O agente consulta `/api/esus-agent/tray-version` e, ao detectar versão superior na nuvem, faz o download de `/api/esus-agent/tray-download`, valida o hash SHA-256, substitui o executável através da técnica de renomeação em execução do Windows (`.antigo`) e relança o novo processo sozinho.
+  * Elimina a necessidade do administrador baixar arquivos `.zip` ou atualizar arquivos no servidor do e-SUS manualmente.
+  * Opção *"Verificar Atualização..."* incorporada no menu de contexto para verificação manual imediata.
+* **Novos Endpoints de Infraestrutura**:
+  * `GET /api/esus-agent/tray-version`: Informações de versão, hash SHA-256 e diretiva de auto-update.
+  * `GET /api/esus-agent/tray-download`: Download do executável `SisFilaSusAgent.exe` puro.
+  * `POST /api/esus-agent/heartbeat`: Registro instantâneo de batimentos cardíacos com identificação de máquina, IP e status.
+  * Liberação no middleware do Supabase para requisições seguras de agentes sem sessão web.
+
+---
+
 ## [0.10.1] — 2026-09-14
 ### Adicionado & Corrigido
 * **Filtro Inteligente de Telefones e Prevenção de Duplicatas (`phone-utils.ts`)**:

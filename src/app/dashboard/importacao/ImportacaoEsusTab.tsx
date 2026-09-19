@@ -65,6 +65,7 @@ export function ImportacaoEsusTab() {
   // Status do Agente no Servidor
   const [isAgentOnline, setIsAgentOnline] = useState<boolean>(false)
   const [agentIdentifier, setAgentIdentifier] = useState<string>('')
+  const [agentVersion, setAgentVersion] = useState<string>('')
   const [liveElapsedSeconds, setLiveElapsedSeconds] = useState<number>(0)
 
   // 1. Checar status do Agente Local periodicamente
@@ -74,6 +75,7 @@ export function ImportacaoEsusTab() {
       if (res.success) {
         setIsAgentOnline(res.status.online)
         if (res.status.identificador) setAgentIdentifier(res.status.identificador)
+        if (res.status.versao) setAgentVersion(res.status.versao)
       }
     }
     checkAgent()
@@ -383,7 +385,7 @@ export function ImportacaoEsusTab() {
                 {isAgentOnline ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Agente Online no Servidor {agentIdentifier ? `(${agentIdentifier})` : ''}
+                    Agente Online no Servidor {agentIdentifier ? `(${agentIdentifier}${agentVersion ? ` v${agentVersion}` : ''})` : ''}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/60">

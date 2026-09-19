@@ -97,3 +97,27 @@ npm run sync:esus -- --all
     - Convergência dos 8 dígitos finais locais para o mesmo paciente.
 - **Promoção Automática de Números:** Se o paciente já possuía um telefone com 10 dígitos e a nova importação trouxer a versão completa de 11 dígitos do mesmo contato, o registro existente é promovido para a versão completa de 11 dígitos sem duplicar a linha.
 - **Tolerância a Arquivos Repetidos:** Se o mesmo arquivo for importado duas vezes (ou arquivos com dados redundantes), a rotina apenas atualiza a data e não gera novos telefones.
+
+---
+
+## 5. Agente Conector Windows 24x7 & Auto-Atualização Transparente
+
+O **SisFilaSUS Agente e-SUS PEC (v1.3.0)** é uma aplicação nativa para Windows (bandeja do sistema) desenvolvida para rodar 24x7 no servidor local do e-SUS PEC, eliminando a necessidade de manter janelas de terminal abertas.
+
+### Funcionalidades do Agente (v1.3.0):
+1. **Heartbeat Ativo e Sinal de Vida:**
+   - Envia batimentos a cada 15 segundos para a nuvem através do endpoint `/api/esus-agent/heartbeat`.
+   - O ícone e menu da bandeja informam o status dinamicamente:
+     - `● Status: Conectado e Aguardando (v1.3.0)` quando online;
+     - `○ Status: Sem Conexão com a Nuvem` em caso de instabilidade de rede.
+2. **Auto-Atualização Transparente (Padrão SisEscala):**
+   - O agente consulta periodicamente o endpoint `/api/esus-agent/tray-version`.
+   - Havendo uma versão mais recente aprovada na nuvem (`auto_update: true`):
+     - Baixa o executável atualizado diretamente de `/api/esus-agent/tray-download`;
+     - Valida o hash de integridade **SHA-256**;
+     - Substitui o binário atual utilizando o padrão de substituição segura do Windows (renomeia o processo em execução para `.antigo`, copia o novo binário e o inicia);
+     - Reinicia-se automaticamente na nova versão **sem intervenção manual** e sem necessidade de baixar pacotes `.zip`.
+3. **Menu da Bandeja:**
+   - Possui botão para checagem manual imediata: *"Verificar Atualização..."*;
+   - Opção para inicialização automática junto ao boot do Windows (*"Iniciar junto com o Windows"* via registro `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+
